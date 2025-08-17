@@ -84,12 +84,8 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
         {/* Google AdSense Script */}
-        <Script 
-          strategy="afterInteractive"
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7877602362549451"
-          crossOrigin="anonymous"
-          async
-        />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7877602362549451"
+          crossorigin="anonymous"></script>
       </head>
       <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}>
         {children}
