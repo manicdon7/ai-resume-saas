@@ -1,4 +1,3 @@
-/* app/page.jsx */
 "use client";
 
 import { useState } from "react";
@@ -9,7 +8,6 @@ import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPass
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { executeRecaptcha, verifyRecaptchaToken, RECAPTCHA_CONFIG } from '../../lib/recaptcha';
 
 // Enhanced Loading Components
 const LoadingSpinner = ({ size = "default", color = "primary" }) => {
@@ -72,6 +70,8 @@ export default function Home() {
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [isResumeFrozen, setIsResumeFrozen] = useState(false);
   const [activeTab, setActiveTab] = useState('resume');
+  const [jobKpi, setJobKpi] = useState(null); // New state for job KPI
+  const [validating, setValidating] = useState(false);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -114,6 +114,7 @@ export default function Home() {
     toast.info("Resume section unlocked");
   };
 
+  // Remove the jobs tab and trigger job search automatically after resume generation
   const handleGenerate = async () => {
     if (!resumeText.trim()) {
       toast.error('Please provide resume content');
@@ -130,9 +131,13 @@ export default function Home() {
 
       const data = await response.json();
 
-      if (data.enhancedResume) {
-        setOutput(data.enhancedResume);
+      // Accept both { enhancedResume } and { text } as valid output
+      if (data.enhancedResume || data.text) {
+        const enhanced = data.enhancedResume || data.text;
+        setOutput(enhanced);
         toast.success('Resume enhanced successfully!');
+        // Trigger job search automatically
+        handleSearchJobs(enhanced);
       } else {
         toast.error('Failed to enhance resume');
       }
@@ -166,7 +171,7 @@ export default function Home() {
       const response = await fetch('/api/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume: output, coverLetter: output }),
+        body: JSON.stringify({ content: output, jobDescription }),
       });
 
       if (response.ok) {
@@ -181,7 +186,8 @@ export default function Home() {
         document.body.removeChild(a);
         toast.success('PDF downloaded successfully!');
       } else {
-        toast.error('Failed to generate PDF');
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.error || 'Failed to generate PDF');
       }
     } catch (error) {
       console.error('PDF generation error:', error);
@@ -191,31 +197,35 @@ export default function Home() {
     }
   };
 
-  const handleSearchJobs = async () => {
-    if (!output) {
-      toast.error('Please enhance your resume first');
+  // Update handleSearchJobs to accept resume text
+  const handleSearchJobs = async (resumeForJobs) => {
+    const resumeToUse = resumeForJobs || output;
+    if (!resumeToUse) {
+      setJobResults([]);
+      setJobKpi(null); // Clear KPI if no resume
       return;
     }
-
     setSearchingJobs(true);
     try {
       const response = await fetch('/api/search-jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume: output }),
+        body: JSON.stringify({ resumeText: resumeToUse }),
       });
-
       const data = await response.json();
-
       if (data.jobs) {
         setJobResults(data.jobs);
+        setJobKpi({ answer: data.answer, totalSources: data.totalSources });
         toast.success(`Found ${data.jobs.length} matching jobs!`);
       } else {
+        setJobResults([]);
+        setJobKpi(null); // Clear KPI if no jobs
         toast.error('No jobs found');
       }
     } catch (error) {
       console.error('Job search error:', error);
       setJobResults([]);
+      setJobKpi(null); // Clear KPI on error
       toast.error('Error searching for jobs');
     } finally {
       setSearchingJobs(false);
@@ -228,6 +238,7 @@ export default function Home() {
       return;
     }
 
+    setValidating(true);
     try {
       const response = await fetch('/api/validate-content', {
         method: 'POST',
@@ -245,14 +256,14 @@ export default function Home() {
     } catch (error) {
       console.error('Validation error:', error);
       toast.error('Error validating content');
+    } finally {
+      setValidating(false);
     }
   };
 
   const handleGoogleAuth = async () => {
     setAuthLoading(true);
     try {
-      const recaptchaToken = await executeRecaptcha(RECAPTCHA_CONFIG.actions.LOGIN);
-      await verifyRecaptchaToken(recaptchaToken, RECAPTCHA_CONFIG.actions.LOGIN);
       await signInWithPopup(auth, googleProvider);
       setShowAuthModal(false);
       toast.success('Signed in with Google!');
@@ -269,10 +280,6 @@ export default function Home() {
     setAuthLoading(true);
 
     try {
-      const action = isSignUp ? RECAPTCHA_CONFIG.actions.SIGNUP : RECAPTCHA_CONFIG.actions.LOGIN;
-      const recaptchaToken = await executeRecaptcha(action);
-      await verifyRecaptchaToken(recaptchaToken, action);
-
       if (isSignUp) {
         if (password !== confirmPassword) {
           toast.error('Passwords do not match');
@@ -401,24 +408,14 @@ export default function Home() {
           <div className="glass rounded-3xl p-2 shadow-2xl">
             <button
               onClick={() => setActiveTab('resume')}
-              className={`px-8 py-4 rounded-2xl text-sm font-semibold transition-all duration-300 ${
-                activeTab === 'resume'
+              className={`px-8 py-4 rounded-2xl text-sm font-semibold transition-all duration-300 ${activeTab === 'resume'
                   ? 'bg-primary text-primary-foreground shadow-lg scale-105'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
+                }`}
             >
               ✨ Resume Enhancement
             </button>
-            <button
-              onClick={() => setActiveTab('jobs')}
-              className={`px-8 py-4 rounded-2xl text-sm font-semibold transition-all duration-300 ${
-                activeTab === 'jobs'
-                  ? 'bg-primary text-primary-foreground shadow-lg scale-105'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-            >
-              💼 Job Search
-            </button>
+            {/* Remove Job Search Tab */}
           </div>
         </div>
 
@@ -478,9 +475,8 @@ export default function Home() {
                 <div className="space-y-6">
                   <label className="block text-lg font-semibold text-foreground">Resume Content</label>
                   <textarea
-                    className={`w-full h-48 p-6 rounded-2xl border border-border text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary/50 transition-all duration-300 resize-none ${
-                      isResumeFrozen ? 'bg-muted/50 cursor-not-allowed' : 'bg-input'
-                    }`}
+                    className={`w-full h-48 p-6 rounded-2xl border border-border text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary/50 transition-all duration-300 resize-none ${isResumeFrozen ? 'bg-muted/50 cursor-not-allowed' : 'bg-input'
+                      }`}
                     placeholder={isResumeFrozen ? "Resume locked - Upload new file to edit" : "Paste your resume here..."}
                     value={resumeText}
                     onChange={(e) => !isResumeFrozen && setResumeText(e.target.value)}
@@ -527,12 +523,6 @@ export default function Home() {
                   <h2 className="text-4xl font-bold gradient-text">Enhanced Resume</h2>
                   <div className="flex gap-4">
                     <button
-                      onClick={handleValidateContent}
-                      className="btn-secondary px-6 py-3 text-sm"
-                    >
-                      🔍 Validate
-                    </button>
-                    <button
                       onClick={handleCopy}
                       disabled={copied}
                       className="btn-primary px-6 py-3 text-sm"
@@ -549,300 +539,249 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="glass-secondary rounded-2xl p-8">
-                  <ReactMarkdown className="prose prose-lg text-foreground prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-code:text-accent">
+                {/* Scrollable Enhanced Resume Output */}
+                <div className="glass-secondary rounded-2xl p-8 max-h-96 overflow-y-auto">
+                  <ReactMarkdown class="prose prose-lg text-foreground prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-code:text-accent">
                     {output}
                   </ReactMarkdown>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Job Search Tab */}
-        {activeTab === 'jobs' && (
-          <div className="card p-12 card-hover">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold gradient-text mb-4">Job Opportunities</h2>
-              <p className="text-xl text-muted-foreground">
-                {output ? 'Matching jobs based on your enhanced resume' : 'Enhance your resume to find relevant jobs'}
-              </p>
-            </div>
-            
-            {output ? (
-              <>
-                <div className="text-center mb-12">
-                  <button
-                    onClick={handleSearchJobs}
-                    disabled={searchingJobs}
-                    className="btn-primary px-10 py-5 text-xl"
-                  >
-                    {searchingJobs ? <ButtonLoader /> : '🔍 Find Jobs'}
-                  </button>
-                </div>
-
+                {/* Job Results Section */}
                 {jobResults.length > 0 && (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {jobResults.map((job, index) => (
-                      <div key={index} className="glass rounded-2xl p-6 card-hover">
-                        <div className="flex items-center gap-3 mb-4">
-                          <span className="text-3xl">{job.siteIcon}</span>
-                          <div>
-                            <div className="font-semibold text-foreground">{job.siteName}</div>
-                            <div className="text-sm text-muted-foreground">{job.type}</div>
-                          </div>
+                  <div className="mt-12">
+                    {/* KPI and summary */}
+                    <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <span className="text-3xl">💼</span>
+                        <div>
+                          <div className="text-lg font-bold text-primary">{jobResults.length} Remote Software Engineer Jobs Found</div>
+                          {jobKpi && jobKpi.totalSources && (
+                            <div className="text-sm text-muted-foreground">Sourced from {jobKpi.totalSources} platforms</div>
+                          )}
                         </div>
-                        
-                        <h3 className="font-semibold text-foreground mb-3 text-lg">{job.jobTitle}</h3>
-                        <div className="text-sm text-muted-foreground mb-6">
-                          <div className="font-medium">{job.company}</div>
-                          <div>{job.location}</div>
-                        </div>
-                        
-                        <a
-                          href={job.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn-primary px-6 py-3 text-sm text-center block"
-                        >
-                          Apply Now
-                        </a>
                       </div>
-                    ))}
+                      {jobKpi && jobKpi.answer && (
+                        <div className="text-sm text-muted-foreground max-w-2xl">{jobKpi.answer}</div>
+                      )}
+                    </div>
+                    <h3 className="text-3xl font-bold gradient-text mb-6">Matching Jobs</h3>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {jobResults.map((job, index) => (
+                        <div key={index} className="glass rounded-2xl p-6 card-hover">
+                          <div className="flex items-center gap-3 mb-4">
+                            <span className="text-3xl">{job.siteIcon}</span>
+                            <div>
+                              <div className="font-semibold text-foreground">{job.siteName}</div>
+                              <div className="text-sm text-muted-foreground">{job.type}</div>
+                            </div>
+                          </div>
+                          <h3 className="font-semibold text-foreground mb-3 text-lg">{job.jobTitle}</h3>
+                          <div className="text-sm text-muted-foreground mb-6">
+                            <div className="font-medium">{job.company}</div>
+                            <div>{job.location}</div>
+                          </div>
+                          <a
+                            href={job.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-primary px-6 py-3 text-sm text-center block"
+                          >
+                            Apply Now
+                          </a>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="text-center py-16">
-                <div className="text-8xl mb-6">💼</div>
-                <h3 className="text-2xl font-semibold text-foreground mb-4">No Resume Available</h3>
-                <p className="text-muted-foreground mb-8 text-lg">Please enhance your resume first to get personalized job recommendations</p>
-                <button
-                  onClick={() => setActiveTab('resume')}
-                  className="btn-primary px-8 py-4 text-lg"
-                >
-                  Enhance Resume
-                </button>
               </div>
             )}
           </div>
         )}
-      </main>
 
-      {/* Features Section with Dark Theme */}
-      <section id="features" className="py-24 px-4 bg-muted/20">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-6xl font-bold gradient-text mb-6">Why RoleFitAI?</h2>
-            <p className="text-xl text-muted-foreground max-w-4xl mx-auto leading-relaxed">
-              Our cutting-edge AI technology transforms your resume into a powerful tool that passes ATS systems and impresses recruiters.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-12">
-            <div className="card p-10 text-center card-hover">
-              <div className="w-24 h-24 glass-primary rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform duration-300">
-                <span className="text-4xl">🤖</span>
-              </div>
-              <h3 className="text-2xl font-semibold text-foreground mb-6">AI Optimization</h3>
-              <p className="text-muted-foreground leading-relaxed text-lg">
-                Advanced AI tailors your resume with industry-specific keywords and professional formatting.
+        {/* Features Section with Dark Theme */}
+        <section id="features" className="py-24 px-4 bg-muted/20">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-20">
+              <h2 className="text-6xl font-bold gradient-text mb-6">Why RoleFitAI?</h2>
+              <p className="text-xl text-muted-foreground max-w-4xl mx-auto leading-relaxed">
+                Our cutting-edge AI technology transforms your resume into a powerful tool that passes ATS systems and impresses recruiters.
               </p>
             </div>
 
-            <div className="card p-10 text-center card-hover">
-              <div className="w-24 h-24 glass-secondary rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform duration-300">
-                <span className="text-4xl">📊</span>
-              </div>
-              <h3 className="text-2xl font-semibold text-foreground mb-6">ATS Compatibility</h3>
-              <p className="text-muted-foreground leading-relaxed text-lg">
-                Ensure your resume passes Applicant Tracking Systems with intelligent keyword optimization.
-              </p>
-            </div>
-
-            <div className="card p-10 text-center card-hover">
-              <div className="w-24 h-24 glass-accent rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform duration-300">
-                <span className="text-4xl">⚡</span>
-              </div>
-              <h3 className="text-2xl font-semibold text-foreground mb-6">Instant Results</h3>
-              <p className="text-muted-foreground leading-relaxed text-lg">
-                Get professional-grade resumes in seconds with our instant enhancement tools.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer with Dark Theme */}
-      <footer className="glass-dark border-t border-border">
-        <div className="max-w-7xl mx-auto px-4 py-16">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-12 h-12 glass-primary rounded-2xl flex items-center justify-center">
-                  <span className="text-primary-foreground font-bold text-xl">R</span>
+            <div className="grid md:grid-cols-3 gap-12">
+              <div className="card p-10 text-center card-hover">
+                <div className="w-24 h-24 glass-primary rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-4xl">🤖</span>
                 </div>
-                <span className="text-2xl font-bold gradient-text">RoleFitAI</span>
+                <h3 className="text-2xl font-semibold text-foreground mb-6">AI Optimization</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">
+                  Advanced AI tailors your resume with industry-specific keywords and professional formatting.
+                </p>
               </div>
-              <p className="text-muted-foreground text-base leading-relaxed">
-                Empowering your career with AI-driven resume optimization and intelligent job matching.
+
+              <div className="card p-10 text-center card-hover">
+                <div className="w-24 h-24 glass-secondary rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-4xl">📊</span>
+                </div>
+                <h3 className="text-2xl font-semibold text-foreground mb-6">ATS Compatibility</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">
+                  Ensure your resume passes Applicant Tracking Systems with intelligent keyword optimization.
+                </p>
+              </div>
+
+              <div className="card p-10 text-center card-hover">
+                <div className="w-24 h-24 glass-accent rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-4xl">⚡</span>
+                </div>
+                <h3 className="text-2xl font-semibold text-foreground mb-6">Instant Results</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">
+                  Get professional-grade resumes in seconds with our instant enhancement tools.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer className="glass-dark border-t border-border">
+          <div className="max-w-7xl mx-auto px-4 py-12 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="text-center md:text-left">
+              <p className="text-muted-foreground text-base md:text-lg">
+                © {new Date().getFullYear()} RoleFitAI. All rights reserved.
+              </p>
+              <p className="text-muted-foreground text-sm mt-2">
+                Last updated: August 17, 2025, 03:48 PM IST
               </p>
             </div>
-
-            <div>
-              <h4 className="font-semibold text-foreground mb-6 text-lg">Product</h4>
-              <ul className="space-y-3 text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">Resume Enhancement</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Cover Letters</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Job Search</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">ATS Optimization</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-foreground mb-6 text-lg">Company</h4>
-              <ul className="space-y-3 text-muted-foreground">
-                <li><a href="/about" className="hover:text-primary transition-colors">About Us</a></li>
-                <li><a href="/contact" className="hover:text-primary transition-colors">Contact</a></li>
-                <li><a href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-                <li><a href="/terms" className="hover:text-primary transition-colors">Terms of Service</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-foreground mb-6 text-lg">Connect</h4>
-              <div className="flex space-x-4">
-                <a href="#" className="w-12 h-12 glass-primary rounded-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300">
-                  <span className="text-lg">📧</span>
-                </a>
-                <a href="#" className="w-12 h-12 glass-secondary rounded-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300">
-                  <span className="text-lg">🐦</span>
-                </a>
-                <a href="#" className="w-12 h-12 glass-accent rounded-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300">
-                  <span className="text-lg">💼</span>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-border mt-12 pt-8 text-center">
-            <p className="text-muted-foreground">
-              © {new Date().getFullYear()} RoleFitAI. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
-
-      {/* Authentication Modal with Dark Theme */}
-      {showAuthModal && (
-        <div className="fixed inset-0 glass-dark z-50 flex items-center justify-center p-4">
-          <div className="card p-10 max-w-md w-full shadow-2xl">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-3xl font-bold gradient-text">
-                {isSignUp ? 'Sign Up' : 'Sign In'}
-              </h2>
-              <button
-                onClick={() => setShowAuthModal(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+            <div className="flex justify-center md:justify-end">
+              <a
+                href="https://www.buymeacoffee.com/manicdon7h"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-transform hover:scale-105"
               >
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <button
-              onClick={handleGoogleAuth}
-              disabled={authLoading}
-              className="btn-secondary w-full flex items-center justify-center px-4 py-4 text-sm mb-6"
-            >
-              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              {authLoading ? 'Processing...' : 'Continue with Google'}
-            </button>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-background text-muted-foreground">Or use email</span>
-              </div>
-            </div>
-
-            <form onSubmit={handleEmailAuth} className="space-y-6">
-              {isSignUp && (
-                <input
-                  type="text"
-                  placeholder="Full Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="input-field"
+                <img
+                  src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
+                  alt="Buy Me A Coffee"
+                  style={{ height: '50px', width: '180px' }}
                 />
-              )}
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="input-field"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="input-field"
-              />
-              {isSignUp && (
+              </a>
+            </div>
+          </div>
+        </footer>
+
+        {/* Authentication Modal with Dark Theme */}
+        {showAuthModal && (
+          <div className="fixed inset-0 glass-dark z-50 flex items-center justify-center p-4">
+            <div className="card p-10 max-w-md w-full shadow-2xl">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold gradient-text">
+                  {isSignUp ? 'Sign Up' : 'Sign In'}
+                </h2>
+                <button
+                  onClick={() => setShowAuthModal(false)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <button
+                onClick={handleGoogleAuth}
+                disabled={authLoading}
+                className="btn-secondary w-full flex items-center justify-center px-4 py-4 text-sm mb-6"
+              >
+                <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                {authLoading ? 'Processing...' : 'Continue with Google'}
+              </button>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-background text-muted-foreground">Or use email</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleEmailAuth} className="space-y-6">
+                {isSignUp && (
+                  <input
+                    type="text"
+                    placeholder="Full Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="input-field"
+                  />
+                )}
                 <input
-                  type="password"
-                  placeholder="Confirm Password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="input-field"
                 />
-              )}
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="btn-primary w-full px-4 py-4 text-sm"
-              >
-                {authLoading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In')}
-              </button>
-            </form>
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="input-field"
+                />
+                {isSignUp && (
+                  <input
+                    type="password"
+                    placeholder="Confirm Password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className="input-field"
+                  />
+                )}
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="btn-primary w-full px-4 py-4 text-sm"
+                >
+                  {authLoading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In')}
+                </button>
+              </form>
 
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-sm text-primary hover:text-primary/80 transition-colors"
-              >
-                {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-              </button>
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="text-sm text-primary hover:text-primary/80 transition-colors"
+                >
+                  {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="dark"
-      />
+        )}
+
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+          toastStyle={{ backgroundColor: '#1F2937', color: '#F3F4F6', borderRadius: '12px', padding: '16px' }}
+          progressStyle={{ backgroundColor: '#6366F1' }}
+        />
+      </main>
     </div>
   );
 }

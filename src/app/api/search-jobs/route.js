@@ -241,8 +241,9 @@ export async function POST(request) {
 
     return NextResponse.json({
       searchQuery,
-      answer: searchData.answer,
+      // answer: searchData.answer,
       jobListings,
+      jobs: jobListings,
       totalSources: searchData.sources_used?.length || 0
     });
 

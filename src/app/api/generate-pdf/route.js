@@ -1,313 +1,191 @@
 import { NextResponse } from 'next/server';
+import puppeteer from 'puppeteer';
 
 export async function POST(request) {
+  let browser = null;
   try {
-    const { content, token, jobDescription } = await request.json();
+    // Parse request body
+    const body = await request.json();
+    const jobDescription = body.jobDescription || body.coverLetter || '';
 
-    if (!token) {
+    // Validate input
+    if (!jobDescription) {
       return NextResponse.json(
-        { error: 'Authentication required for PDF download' },
-        { status: 401 }
+        { error: 'Job description or cover letter text is required' },
+        { status: 400 }
       );
     }
 
-    // Generate dynamic cover letter based on job description
+    // Extract name for title (fallback to Hariharan R if not provided)
+    const nameMatch = body.content ? body.content.match(/^#\s*(.+)$/m) : ['sample'].match(/^#\s*(.+)$/m);
+    const documentTitle = `${nameMatch[1]}'s Cover Letter`;
+
+    // Generate dynamic cover letter
     let dynamicCoverLetter = '';
-    if (jobDescription) {
-      try {
-        const coverLetterPrompt = `Create a personalized cover letter based on this resume content and job description. Make it unique, engaging, and tailored.
-
-RESUME CONTENT:
-${content}
-
-JOB DESCRIPTION:
-${jobDescription}
-
-Create a professional cover letter that:
-- Has a unique opening that grabs attention
-- Specifically mentions the company/role from job description
-- Highlights 2-3 most relevant experiences from the resume
-- Shows enthusiasm for the specific role
-- Has a strong closing with call to action
-- Varies in length (3-5 paragraphs)
-- Uses different tone/style based on company culture (formal for banks, casual for startups)
-
-Format as clean text without markdown headers.`;
-
-        const aiRes = await fetch("https://text.pollinations.ai/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [{ role: "user", content: coverLetterPrompt }],
-            model: "openai"
-          }),
-        });
-
-        if (aiRes.ok) {
-          dynamicCoverLetter = await aiRes.text();
-        }
-      } catch (error) {
-        console.error('Cover letter generation error:', error);
-      }
-    }
-
-    // Clean and format the markdown content
-    function cleanAndFormatMarkdown(markdown) {
-      // Split content into sections
-      let cleanedContent = markdown;
-      
-      // Fix common formatting issues
-      cleanedContent = cleanedContent
-        // Fix email and contact info formatting
-        .replace(/\*\*Email:\*\* ([^\|]+) \| \*\*Phone:\*\* ([^\|]+) \| \*\*LinkedIn:\*\*/g, 
-                '**Email:** $1 | **Phone:** $2 | **LinkedIn:** [Profile Link]')
-        // Fix section separators
-        .replace(/---\s*## /g, '\n\n## ')
-        .replace(/([a-z])\s*## /g, '$1\n\n## ')
-        .replace(/([a-z])\s*### /g, '$1\n\n### ')
-        // Fix bullet points
-        .replace(/-\s*([^-\n]+)/g, '\n- $1')
-        // Fix line breaks
-        .replace(/\n{3,}/g, '\n\n')
-        // Fix spacing around headers
-        .replace(/([^\n])\n## /g, '$1\n\n## ')
-        .replace(/([^\n])\n### /g, '$1\n\n### ');
-
-      return cleanedContent;
-    }
-
-    // Convert markdown to HTML with proper formatting
-    function markdownToHtml(markdown) {
-      let html = markdown;
-      
-      // Convert markdown to HTML
-      html = html
-        // Headers
-        .replace(/^### (.*$)/gim, '<h3 class="job-title">$1</h3>')
-        .replace(/^## (.*$)/gim, '<h2 class="section-header">$1</h2>')
-        .replace(/^# (.*$)/gim, '<h1 class="name">$1</h1>')
-        
-        // Bold text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        
-        // Lists
-        .replace(/^- (.*$)/gim, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>)/s, '<ul class="bullet-list">$1</ul>')
-        
-        // Line breaks
-        .replace(/\n/g, '<br>')
-        
-        // Fix nested lists
-        .replace(/<ul class="bullet-list">\s*<br>\s*<li>/g, '<ul class="bullet-list"><li>')
-        .replace(/<\/li>\s*<br>\s*<\/ul>/g, '</li></ul>')
-        
-        // Remove extra <br> tags
-        .replace(/<br>\s*<br>/g, '</p><p>')
-        .replace(/<br>\s*<h/g, '</p><h')
-        .replace(/<br>\s*<ul/g, '</p><ul')
-        
-        // Wrap content in paragraphs
-        .replace(/^([^<].*?)(?=<h|<ul|<br>|$)/gim, '<p class="content-paragraph">$1</p>')
-        
-        // Clean up empty paragraphs
-        .replace(/<p class="content-paragraph"><\/p>/g, '')
-        .replace(/<p class="content-paragraph"><br><\/p>/g, '');
-
-      return html;
-    }
-
-    // Process the content
-    const cleanedMarkdown = cleanAndFormatMarkdown(content);
-    const resumeHtml = markdownToHtml(cleanedMarkdown);
-    
-    // Add cover letter section
-    let coverLetterHtml = '<div class="page-break"></div>';
-    coverLetterHtml += '<div class="cover-letter-section">';
-    coverLetterHtml += '<h1 class="cover-letter-title">Cover Letter</h1>';
-    
-    if (dynamicCoverLetter && dynamicCoverLetter.trim()) {
-      const coverLetterParagraphs = dynamicCoverLetter.split('\n\n');
-      coverLetterParagraphs.forEach(paragraph => {
-        if (paragraph.trim()) {
-          coverLetterHtml += `<p class="letter-paragraph">${paragraph.trim()}</p>`;
-        }
+    try {
+      const coverLetterPrompt = `Create a personalized cover letter for Hariharan R based on this job description. Make it unique, engaging, and tailored.\n\nJOB DESCRIPTION:\n${jobDescription}\n\nCreate a professional cover letter that:\n- Has a unique opening that grabs attention\n- Specifically mentions the company/role from job description\n- Highlights 2-3 relevant experiences from Hariharan R's background: freelance MERN stack projects (Chill-Chat and Aura apps with real-time features, media sharing, JWT authentication, MongoDB/MySQL, deployed on Render/Vercel), and Node.js/Express internship at XYZ Technologies (building backend services, reducing latency by 20%, API security)\n- Shows enthusiasm for the specific role\n- Has a strong closing with call to action\n- Varies in length (3-5 paragraphs)\n- Uses different tone/style based on company culture (formal for banks, casual for startups)\n- End with Sincerely, Hariharan R\n\nFormat as clean text without markdown headers or placeholders like [Company Name] or [Full Name]. Use actual names and details.`;
+      const aiRes = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: coverLetterPrompt }],
+          model: 'openai',
+        }),
       });
-    } else {
-      // Fallback cover letter
-      coverLetterHtml += '<p class="letter-paragraph">Dear Hiring Manager,</p>';
-      coverLetterHtml += '<p class="letter-paragraph">I am writing to express my strong interest in this position. My background and experience make me a strong candidate for this role.</p>';
-      coverLetterHtml += '<p class="letter-paragraph">I would welcome the opportunity to discuss how my skills and experience align with your needs.</p>';
-      coverLetterHtml += '<p class="letter-paragraph">Best regards,<br>[Your Name]</p>';
+      if (aiRes.ok) {
+        dynamicCoverLetter = await aiRes.text();
+      }
+    } catch (error) {
+      console.error('Cover letter generation error:', error);
     }
-    
+//     // Fallback if API fails (no placeholders)
+//     if (!dynamicCoverLetter) {
+//       dynamicCoverLetter = `Dear Hiring Team at CodeCrafters Labs,
+
+// Imagine a backend developer who doesn't just write code but crafts resilient, scalable engines that power seamless user experiences—that’s exactly the kind of energy I’m excited to bring to your team as a Backend Developer. Reading through your job description, I immediately saw a lot of synergy with my experience and passion, especially given your focus on Node.js and Express, building robust APIs, and optimizing system performance. I’d love to contribute to your innovative projects and help elevate your backend architecture to new heights.
+
+// In my recent freelance projects, I developed two full-featured web applications, Chill-Chat and Aura, utilizing the MERN stack. These applications supported over 50 concurrent users, with real-time media sharing and secure authentication through JWT. My hands-on experience with designing RESTful APIs and managing database schemas in MongoDB and MySQL aligns closely with your needs for creating efficient backend systems. Deploying these on cloud platforms like Render and Vercel, I ensured high availability and smooth deployment workflows, which echoes your emphasis on scalable and reliable solutions.
+
+// Additionally, during my internship at XYZ Technologies, I contributed to building backend services with Node.js and Express, focusing on reducing API latency and enhancing security. Collaborating with frontend developers, I learned the importance of clean, reusable server-side code—values I hold dearly and practice with every project. My familiarity with Git workflows and debugging complements your requirements for a problem-solver who thrives in team environments.
+
+// What excites me most about joining CodeCrafters Labs is your commitment to innovation and flexible remote work. I am eager to bring my enthusiasm for backend engineering, along with my technical skills and proactive mindset, to develop solutions that not only meet functional needs but also anticipate future scalability and security challenges. I am confident that my background and drive will be a valuable addition to your team.
+
+// I’d love the opportunity to discuss how my experience can align with your vision. Please feel free to reach out for a chat—I look forward to the possibility of contributing to CodeCrafters Labs’ exciting journey.
+
+// Sincerely,
+// Hariharan R`;
+//     }
+
+    // Generate cover letter HTML
+    let coverLetterHtml = '<div class="cover-letter-section">';
+    coverLetterHtml += '<h1 class="cover-letter-title">Cover Letter</h1>';
+    coverLetterHtml += '<p class="date">August 17, 2025</p>';
+    const coverLetterParagraphs = dynamicCoverLetter.split('\n\n');
+    coverLetterParagraphs.forEach(paragraph => {
+      if (paragraph.trim()) {
+        coverLetterHtml += `<p class="letter-paragraph">${paragraph.trim()}</p>`;
+      }
+    });
+    coverLetterHtml += '<p class="closing">Sincerely,<br>Hariharan R</p>';
     coverLetterHtml += '</div>';
-    
+
+    // Single page allocation (no empty pages)
+    const pagesHtml = [coverLetterHtml];
+
+    // Combine pages with page breaks (only if multiple pages needed, but filtered)
     const fullHtmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
-          <title>Professional Resume & Cover Letter</title>
+          <title>${documentTitle}</title>
           <style>
             * {
               box-sizing: border-box;
               margin: 0;
               padding: 0;
             }
-            
-            body { 
-              font-family: 'Georgia', 'Times New Roman', serif; 
-              line-height: 1.4; 
-              color: #2c3e50; 
+            body {
+              font-family: 'Georgia', 'Times New Roman', Times, serif;
+              line-height: 1.6;
+              color: #2c3e50;
               background: white;
               font-size: 11pt;
               padding: 0;
             }
-            
             .content {
-              max-width: 8.5in;
+              width: 595pt; /* A4 width */
               margin: 0 auto;
-              padding: 0.75in;
-              min-height: 11in;
+              padding: 50pt;
+              /* No min-height to avoid forcing empty pages */
             }
-            
-            /* Resume Header */
-            .name {
-              font-size: 28pt;
-              font-weight: bold;
-              color: #2c3e50;
-              margin-bottom: 15pt;
-              text-align: center;
-              letter-spacing: 1pt;
-              border-bottom: 2pt solid #3498db;
-              padding-bottom: 10pt;
-            }
-            
-            /* Section Headers */
-            .section-header {
-              font-size: 16pt;
-              font-weight: bold;
-              color: #34495e;
-              margin: 20pt 0 10pt 0;
-              padding-bottom: 5pt;
-              border-bottom: 1pt solid #bdc3c7;
-              page-break-after: avoid;
-            }
-            
-            /* Job Titles */
-            .job-title {
-              font-size: 13pt;
-              font-weight: bold;
-              color: #2c3e50;
-              margin: 12pt 0 4pt 0;
-              page-break-after: avoid;
-            }
-            
-            /* Content */
-            .content-paragraph {
-              margin: 8pt 0;
-              line-height: 1.5;
-              text-align: justify;
-            }
-            
-            .bullet-list {
-              margin: 8pt 0 12pt 20pt;
-              padding: 0;
-            }
-            
-            .bullet-list li {
-              margin-bottom: 4pt;
-              line-height: 1.4;
-              list-style-type: disc;
-            }
-            
-            strong {
-              font-weight: bold;
-              color: #2c3e50;
-            }
-            
-            /* Cover Letter Styles */
-            .page-break {
-              page-break-before: always;
-              height: 0;
-            }
-            
             .cover-letter-section {
               margin-top: 0;
             }
-            
             .cover-letter-title {
-              font-size: 22pt;
+              font-size: 20pt;
               font-weight: bold;
               color: #2c3e50;
               text-align: center;
-              margin-bottom: 25pt;
+              margin-bottom: 20pt;
               padding-bottom: 10pt;
               border-bottom: 2pt solid #3498db;
             }
-            
+            .date {
+              text-align: right;
+              margin-bottom: 20pt;
+            }
             .letter-paragraph {
               margin: 12pt 0;
               line-height: 1.6;
-              text-align: justify;
-              text-indent: 0;
+              text-align: left;
+              text-indent: 20pt;
             }
-            
-            /* Print Optimizations */
+            .closing {
+              margin-top: 20pt;
+              text-align: right;
+              font-style: italic;
+            }
             @media print {
               body {
                 font-size: 10pt;
+                margin: 0;
               }
-              
               .content {
-                padding: 0.5in;
+                padding: 40pt;
+                width: 595pt;
               }
-              
-              .name {
-                font-size: 24pt;
-              }
-              
-              .section-header {
-                font-size: 14pt;
-              }
-              
-              .job-title {
-                font-size: 11pt;
-              }
-              
               .cover-letter-title {
                 font-size: 18pt;
               }
-              
-              /* Ensure proper page breaks */
-              .job-title,
-              .section-header {
-                page-break-after: avoid;
+              .letter-paragraph {
+                text-indent: 15pt;
               }
-              
-              .bullet-list {
-                page-break-inside: avoid;
+              .closing {
+                text-align: right;
               }
             }
           </style>
         </head>
         <body>
           <div class="content">
-            ${resumeHtml}
-            ${coverLetterHtml}
+            ${pagesHtml.join('')}
           </div>
         </body>
       </html>
     `;
 
-    return NextResponse.json({
-      success: true,
-      htmlContent: fullHtmlContent,
-      message: 'PDF content generated successfully'
+    // Puppeteer PDF generation
+    browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: 'new',
     });
+    const page = await browser.newPage();
+    await page.setContent(fullHtmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: 50,
+        bottom: 50,
+        left: 50,
+        right: 50,
+      },
+    });
+    await browser.close();
 
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${documentTitle.replace(/[^a-zA-Z0-9 ]/g, '')}.pdf"`,
+      },
+    });
   } catch (error) {
     console.error('PDF generation error:', error);
+    if (browser) {
+      await browser.close().catch(err => console.error('Browser close error:', err));
+    }
     return NextResponse.json(
       { error: 'Error generating PDF' },
       { status: 500 }
