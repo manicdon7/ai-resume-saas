@@ -1,20 +1,7 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
-
-// Modern base64 encoding without Buffer
-function base64Encode(str) {
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-// Modern text to bytes conversion
-function stringToUint8Array(str) {
-  const encoder = new TextEncoder();
-  return encoder.encode(str);
-}
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 export async function POST(request) {
-  let browser = null;
-
   try {
     const body = await request.json();
     const resumeContent = body.content;
@@ -100,194 +87,185 @@ I am excited about the possibility of bringing my expertise to your team and wou
 
     // Clean and split paragraphs properly
     const paragraphs = dynamicCoverLetter
-      .split(/\n\s*\n/) // Split on double line breaks
-      .map(p => p.replace(/\s+/g, ' ').trim()) // Clean up whitespace
-      .filter(p => p.length > 20); // Filter out very short paragraphs
+      .split(/\n\s*\n/)
+      .map(p => p.replace(/\s+/g, ' ').trim())
+      .filter(p => p.length > 20);
 
-    // Escape HTML entities properly
-    const escapeHtml = (text) => {
-      return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    };
-
-    const safeName = escapeHtml(name);
     const safeFileName = name.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
 
-    // Create properly structured HTML
-    const fullHtmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${safeName}'s Cover Letter</title>
-  <style>
-    @page {
-      size: A4;
-      margin: 1in;
-    }
+    // Create PDF using pdf-lib
+    console.log('Creating PDF with pdf-lib...');
     
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([612, 792]); // US Letter size
     
-    body {
-      font-family: 'Times New Roman', Times, serif;
-      font-size: 12pt;
-      line-height: 1.6;
-      color: #2c3e50;
-      background: white;
-      max-width: 8.5in;
-      margin: 0 auto;
-      padding: 1in;
-    }
-    
-    .header {
-      text-align: center;
-      margin-bottom: 2rem;
-      padding-bottom: 1rem;
-      border-bottom: 2px solid #3498db;
-    }
-    
-    .title {
-      font-size: 20pt;
-      font-weight: bold;
-      color: #2c3e50;
-      font-family: Arial, sans-serif;
-      margin-bottom: 0.5rem;
-    }
-    
-    .date {
-      text-align: right;
-      margin-bottom: 2rem;
-      font-size: 12pt;
-    }
-    
-    .greeting {
-      margin-bottom: 1.5rem;
-      font-size: 12pt;
-    }
-    
-    .paragraph {
-      margin-bottom: 1.5rem;
-      text-align: justify;
-      font-size: 12pt;
-      line-height: 1.6;
-    }
-    
-    .closing {
-      margin-top: 1.5rem;
-      margin-bottom: 1.5rem;
-      font-size: 12pt;
-    }
-    
-    .signature {
-      margin-top: 3rem;
-      font-size: 12pt;
-    }
-    
-    .signature-line {
-      margin-bottom: 0.5rem;
-    }
-    
-    .name {
-      margin-top: 1rem;
-      font-weight: bold;
-    }
+    const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+    const timesRomanBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    @media print {
-      body {
-        padding: 0;
-        margin: 0;
+    const { width, height } = page.getSize();
+    const margin = 72; // 1 inch margins
+    const contentWidth = width - 2 * margin;
+    let yPosition = height - margin;
+
+    // Helper function to wrap text
+    function wrapText(text, font, fontSize, maxWidth) {
+      const words = text.split(' ');
+      const lines = [];
+      let currentLine = '';
+
+      for (const word of words) {
+        const testLine = currentLine + (currentLine ? ' ' : '') + word;
+        const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+        
+        if (testWidth <= maxWidth) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            lines.push(word);
+          }
+        }
       }
+      
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+      
+      return lines;
     }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="title">Cover Letter</div>
-  </div>
-  
-  <div class="date">${currentDate}</div>
-  
-  <div class="greeting">Dear Hiring Manager,</div>
-  
-  ${paragraphs.map(paragraph => 
-    `<div class="paragraph">${escapeHtml(paragraph)}</div>`
-  ).join('')}
-  
-  <div class="closing">Thank you for considering my application. I look forward to hearing from you soon.</div>
-  
-  <div class="signature">
-    <div class="signature-line">Sincerely,</div>
-    <div class="name">${safeName}</div>
-  </div>
-</body>
-</html>`;
 
-    // Generate PDF using Puppeteer
-    console.log('Starting PDF generation with Puppeteer...');
-    
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu'
-      ],
-      executablePath: process.env.NODE_ENV === 'production' 
-        ? process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable'
-        : undefined
+    // Header - Cover Letter title
+    const titleFontSize = 18;
+    const titleWidth = helveticaBold.widthOfTextAtSize('Cover Letter', titleFontSize);
+    page.drawText('Cover Letter', {
+      x: (width - titleWidth) / 2,
+      y: yPosition,
+      size: titleFontSize,
+      font: helveticaBold,
+      color: rgb(0.17, 0.24, 0.31), // Dark blue-gray
     });
 
-    const page = await browser.newPage();
-    
-    // Set content and wait for it to load
-    await page.setContent(fullHtmlContent, { 
-      waitUntil: ['networkidle0', 'domcontentloaded'],
-      timeout: 30000 
+    // Underline
+    yPosition -= 10;
+    page.drawLine({
+      start: { x: margin, y: yPosition },
+      end: { x: width - margin, y: yPosition },
+      thickness: 2,
+      color: rgb(0.2, 0.59, 0.86), // Blue
     });
 
-    // Wait a bit more for fonts to load
-    await page.evaluateHandle('document.fonts.ready');
-    
-    // Generate PDF as Uint8Array (modern approach)
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      margin: {
-        top: '1in',
-        right: '1in',
-        bottom: '1in',
-        left: '1in'
-      },
-      printBackground: true,
-      preferCSSPageSize: true,
-      timeout: 30000
+    yPosition -= 40;
+
+    // Date (right aligned)
+    const dateText = currentDate;
+    const dateFontSize = 11;
+    const dateWidth = timesRomanFont.widthOfTextAtSize(dateText, dateFontSize);
+    page.drawText(dateText, {
+      x: width - margin - dateWidth,
+      y: yPosition,
+      size: dateFontSize,
+      font: timesRomanFont,
+      color: rgb(0.17, 0.24, 0.31),
     });
 
-    await browser.close();
-    browser = null;
+    yPosition -= 40;
 
-    console.log('PDF generated successfully');
+    // Greeting
+    page.drawText('Dear Hiring Manager,', {
+      x: margin,
+      y: yPosition,
+      size: 11,
+      font: timesRomanFont,
+      color: rgb(0.17, 0.24, 0.31),
+    });
 
-    // Convert buffer to Uint8Array for modern handling
-    const pdfUint8Array = new Uint8Array(pdfBuffer);
+    yPosition -= 30;
+
+    // Cover letter paragraphs
+    const paragraphFontSize = 11;
+    const lineHeight = 16;
     
-    return new NextResponse(pdfUint8Array, {
+    for (const paragraph of paragraphs) {
+      const lines = wrapText(paragraph, timesRomanFont, paragraphFontSize, contentWidth);
+      
+      for (const line of lines) {
+        if (yPosition < margin + 100) {
+          // Add new page if needed
+          const newPage = pdfDoc.addPage([612, 792]);
+          yPosition = height - margin;
+          
+          // Continue on new page
+          newPage.drawText(line, {
+            x: margin,
+            y: yPosition,
+            size: paragraphFontSize,
+            font: timesRomanFont,
+            color: rgb(0.17, 0.24, 0.31),
+          });
+        } else {
+          page.drawText(line, {
+            x: margin,
+            y: yPosition,
+            size: paragraphFontSize,
+            font: timesRomanFont,
+            color: rgb(0.17, 0.24, 0.31),
+          });
+        }
+        
+        yPosition -= lineHeight;
+      }
+      
+      yPosition -= 10; // Extra space between paragraphs
+    }
+
+    yPosition -= 10;
+
+    // Closing
+    page.drawText('Thank you for considering my application. I look forward to hearing from you soon.', {
+      x: margin,
+      y: yPosition,
+      size: 11,
+      font: timesRomanFont,
+      color: rgb(0.17, 0.24, 0.31),
+    });
+
+    yPosition -= 40;
+
+    // Signature
+    page.drawText('Sincerely,', {
+      x: margin,
+      y: yPosition,
+      size: 11,
+      font: timesRomanFont,
+      color: rgb(0.17, 0.24, 0.31),
+    });
+
+    yPosition -= 30;
+
+    page.drawText(name, {
+      x: margin,
+      y: yPosition,
+      size: 11,
+      font: timesRomanBold,
+      color: rgb(0.17, 0.24, 0.31),
+    });
+
+    // Generate PDF bytes
+    const pdfBytes = await pdfDoc.save();
+
+    console.log('PDF generated successfully with pdf-lib');
+
+    // Return PDF
+    return new NextResponse(pdfBytes, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${safeFileName}_Cover_Letter.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
+        'Content-Length': pdfBytes.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
@@ -295,36 +273,9 @@ I am excited about the possibility of bringing my expertise to your team and wou
   } catch (error) {
     console.error('PDF generation error:', error);
     
-    // Ensure browser is closed in case of error
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (closeError) {
-        console.error('Error closing browser:', closeError);
-      }
-    }
-
-    // Try to generate a fallback HTML if PDF fails
-    try {
-      const safeName = name.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-      const fallbackHtml = `<!DOCTYPE html>
-<html><head><title>Cover Letter - PDF Generation Failed</title></head>
-<body><h1>PDF Generation Failed</h1><p>There was an error generating the PDF. Please try again or contact support.</p></body></html>`;
-      
-      const htmlUint8Array = stringToUint8Array(fallbackHtml);
-      
-      return new NextResponse(htmlUint8Array, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/html',
-          'Content-Disposition': `attachment; filename="${safeName}_Cover_Letter.html"`
-        }
-      });
-    } catch (fallbackError) {
-      return NextResponse.json({
-        error: 'Error generating cover letter',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'PDF generation failed'
-      }, { status: 500 });
-    }
+    return NextResponse.json({
+      error: 'Error generating cover letter',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'PDF generation failed'
+    }, { status: 500 });
   }
 }
