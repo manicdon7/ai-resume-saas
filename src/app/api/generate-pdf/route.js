@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import puppeteer from 'puppeteer';
 
 export async function POST(request) {
+  let browser = null;
+
   try {
     const body = await request.json();
     const resumeContent = body.content;
@@ -124,28 +127,24 @@ I am excited about the possibility of bringing my expertise to your team and wou
     
     body {
       font-family: 'Times New Roman', Times, serif;
-      font-size: 11pt;
-      line-height: 1.5;
+      font-size: 12pt;
+      line-height: 1.6;
       color: #2c3e50;
       background: white;
-    }
-    
-    .container {
-      width: 100%;
       max-width: 8.5in;
       margin: 0 auto;
-      padding: 0.5in;
+      padding: 1in;
     }
     
     .header {
       text-align: center;
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
       padding-bottom: 1rem;
       border-bottom: 2px solid #3498db;
     }
     
     .title {
-      font-size: 18pt;
+      font-size: 20pt;
       font-weight: bold;
       color: #2c3e50;
       font-family: Arial, sans-serif;
@@ -154,31 +153,31 @@ I am excited about the possibility of bringing my expertise to your team and wou
     
     .date {
       text-align: right;
-      margin-bottom: 1.5rem;
-      font-size: 11pt;
+      margin-bottom: 2rem;
+      font-size: 12pt;
     }
     
     .greeting {
-      margin-bottom: 1rem;
-      font-size: 11pt;
+      margin-bottom: 1.5rem;
+      font-size: 12pt;
     }
     
     .paragraph {
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
       text-align: justify;
-      font-size: 11pt;
+      font-size: 12pt;
       line-height: 1.6;
     }
     
     .closing {
-      margin-top: 1rem;
-      margin-bottom: 1rem;
-      font-size: 11pt;
+      margin-top: 1.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 12pt;
     }
     
     .signature {
-      margin-top: 2rem;
-      font-size: 11pt;
+      margin-top: 3rem;
+      font-size: 12pt;
     }
     
     .signature-line {
@@ -189,130 +188,93 @@ I am excited about the possibility of bringing my expertise to your team and wou
       margin-top: 1rem;
       font-weight: bold;
     }
+
+    @media print {
+      body {
+        padding: 0;
+        margin: 0;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="title">Cover Letter</div>
-    </div>
-    
-    <div class="date">${currentDate}</div>
-    
-    <div class="greeting">Dear Hiring Manager,</div>
-    
-    ${paragraphs.map(paragraph => 
-      `<div class="paragraph">${escapeHtml(paragraph)}</div>`
-    ).join('')}
-    
-    <div class="closing">Thank you for considering my application. I look forward to hearing from you soon.</div>
-    
-    <div class="signature">
-      <div class="signature-line">Sincerely,</div>
-      <div class="name">${safeName}</div>
-    </div>
+  <div class="header">
+    <div class="title">Cover Letter</div>
+  </div>
+  
+  <div class="date">${currentDate}</div>
+  
+  <div class="greeting">Dear Hiring Manager,</div>
+  
+  ${paragraphs.map(paragraph => 
+    `<div class="paragraph">${escapeHtml(paragraph)}</div>`
+  ).join('')}
+  
+  <div class="closing">Thank you for considering my application. I look forward to hearing from you soon.</div>
+  
+  <div class="signature">
+    <div class="signature-line">Sincerely,</div>
+    <div class="name">${safeName}</div>
   </div>
 </body>
 </html>`;
 
-    let pdfBuffer = null;
+    // Generate PDF using Puppeteer
+    console.log('Starting PDF generation with Puppeteer...');
+    
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
+      ],
+      executablePath: process.env.NODE_ENV === 'production' 
+        ? process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable'
+        : undefined
+    });
 
-    // Method 1: Try PDFShift (most reliable)
-    if (process.env.PDFSHIFT_API_KEY) {
-      try {
-        console.log('Trying PDFShift...');
-        const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Basic ${Buffer.from(`api:${process.env.PDFSHIFT_API_KEY}`).toString('base64')}`
-          },
-          body: JSON.stringify({
-            source: fullHtmlContent,
-            landscape: false,
-            format: 'A4',
-            margin: '1in',
-            print_background: true,
-            delay: 2000,
-            timeout: 30
-          })
-        });
+    const page = await browser.newPage();
+    
+    // Set content and wait for it to load
+    await page.setContent(fullHtmlContent, { 
+      waitUntil: ['networkidle0', 'domcontentloaded'],
+      timeout: 30000 
+    });
 
-        if (pdfResponse.ok) {
-          pdfBuffer = await pdfResponse.arrayBuffer();
-          console.log('PDFShift success');
-        } else {
-          const errorText = await pdfResponse.text();
-          console.error('PDFShift error:', errorText);
-          throw new Error(`PDFShift failed: ${pdfResponse.status}`);
-        }
-      } catch (pdfError) {
-        console.error('PDFShift failed:', pdfError);
-      }
-    }
+    // Wait a bit more for fonts to load
+    await page.evaluateHandle('document.fonts.ready');
+    
+    // Generate PDF
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      margin: {
+        top: '1in',
+        right: '1in',
+        bottom: '1in',
+        left: '1in'
+      },
+      printBackground: true,
+      preferCSSPageSize: true,
+      timeout: 30000
+    });
 
-    // // Method 2: Try HTML/CSS to Image API
-    // if (!pdfBuffer && process.env.HCTI_USER_ID && process.env.HCTI_API_KEY) {
-    //   try {
-    //     console.log('Trying HCTI...');
-    //     const hctiResponse = await fetch('https://hcti.io/v1/image', {
-    //       method: 'POST',
-    //       headers: {
-    //         'Content-Type': 'application/json',
-    //         'Authorization': `Basic ${Buffer.from(`${process.env.HCTI_USER_ID}:${process.env.HCTI_API_KEY}`).toString('base64')}`
-    //       },
-    //       body: JSON.stringify({
-    //         html: fullHtmlContent,
-    //         format: 'pdf',
-    //         width: 794, // A4 width in pixels at 96 DPI
-    //         height: 1123, // A4 height in pixels at 96 DPI
-    //         quality: 100,
-    //         device_scale: 2
-    //       })
-    //     });
+    await browser.close();
+    browser = null;
 
-    //     if (hctiResponse.ok) {
-    //       const hctiData = await hctiResponse.json();
-    //       if (hctiData.url) {
-    //         const pdfFile = await fetch(hctiData.url);
-    //         pdfBuffer = await pdfFile.arrayBuffer();
-    //         console.log('HCTI success');
-    //       }
-    //     } else {
-    //       const errorText = await hctiResponse.text();
-    //       console.error('HCTI error:', errorText);
-    //     }
-    //   } catch (hctiError) {
-    //     console.error('HCTI failed:', hctiError);
-    //   }
-    // }
+    console.log('PDF generated successfully');
 
-    // Method 3: Try Puppeteer (remove this section as it won't work reliably on Vercel)
-    // Keeping the original code structure but skipping Puppeteer entirely
-
-    // If PDF generation succeeded, return PDF
-    if (pdfBuffer && pdfBuffer.byteLength > 0) {
-      return new NextResponse(pdfBuffer, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${safeFileName}_Cover_Letter.pdf"`,
-          'Content-Length': pdfBuffer.byteLength.toString(),
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
-        }
-      });
-    }
-
-    // Fallback: Return properly formatted HTML
-    console.log('All PDF methods failed, returning HTML fallback');
-    const htmlBuffer = Buffer.from(fullHtmlContent, 'utf-8');
-
-    return new NextResponse(htmlBuffer, {
+    // Return PDF
+    return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
-        'Content-Type': 'text/html',
-        'Content-Disposition': `attachment; filename="${safeFileName}_Cover_Letter.html"`,
-        'Content-Length': htmlBuffer.length.toString(),
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${safeFileName}_Cover_Letter.pdf"`,
+        'Content-Length': pdfBuffer.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
@@ -320,9 +282,34 @@ I am excited about the possibility of bringing my expertise to your team and wou
   } catch (error) {
     console.error('PDF generation error:', error);
     
-    return NextResponse.json({
-      error: 'Error generating cover letter',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'PDF generation failed'
-    }, { status: 500 });
+    // Ensure browser is closed in case of error
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.error('Error closing browser:', closeError);
+      }
+    }
+
+    // Try to generate a fallback HTML if PDF fails
+    try {
+      const safeName = name.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+      const fallbackHtml = `<!DOCTYPE html>
+<html><head><title>Cover Letter - PDF Generation Failed</title></head>
+<body><h1>PDF Generation Failed</h1><p>There was an error generating the PDF. Please try again or contact support.</p></body></html>`;
+      
+      return new NextResponse(fallbackHtml, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+          'Content-Disposition': `attachment; filename="${safeName}_Cover_Letter.html"`
+        }
+      });
+    } catch (fallbackError) {
+      return NextResponse.json({
+        error: 'Error generating cover letter',
+        details: process.env.NODE_ENV === 'development' ? error.message : 'PDF generation failed'
+      }, { status: 500 });
+    }
   }
 }

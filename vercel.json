@@ -1,14 +1,11 @@
 {
-    "version": 2,
     "functions": {
-      "app/api/generate-pdf/route.js": {
+      "app/api/*/route.js": {
         "maxDuration": 30
       }
     },
-    "build": {
-      "env": {
-        "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true",
-        "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/google-chrome-stable"
-      }
+    "env": {
+      "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true",
+      "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/google-chrome-stable"
     }
   }
