@@ -1,6 +1,7 @@
 import { Inter, Poppins, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import 'react-toastify/dist/ReactToastify.css';
+import Script from "next/script";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -21,6 +22,8 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+export const viewport = 'width=device-width, initial-scale=1, maximum-scale=5';
+
 export const metadata = {
   title: "RoleFitAI - Free AI Resume & Cover Letter Builder | ATS Optimized",
   description:
@@ -28,7 +31,6 @@ export const metadata = {
   keywords:
     "AI resume builder, resume optimizer, ATS resume, free resume maker, cover letter generator, job applications, AI job tools, RoleFitAI",
   authors: [{ name: "RoleFitAI" }],
-  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
   robots: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
   alternates: {
     canonical: "https://rolefitai.vercel.app/",
