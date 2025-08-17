@@ -263,7 +263,7 @@ Thank you for considering my application. I look forward to hearing from you soo
     });
     
     // Wait a bit more to ensure content is fully rendered
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 7000));
     
     const pdfBuffer = await page.pdf({
       format: 'A4',
