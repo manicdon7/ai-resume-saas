@@ -9,15 +9,33 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google-cloud/recaptcha-enterprise": "^6.3.0",
+    "bcryptjs": "^3.0.2",
+    "firebase": "^12.1.0",
+    "helmet": "^8.1.0",
+    "html-pdf-node": "^1.0.8",
+    "html2canvas": "^1.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^3.0.1",
+    "jspdf-html2canvas": "^1.5.2",
+    "mammoth": "^1.10.0",
+    "marked": "^16.1.2",
+    "mongodb": "^6.18.0",
+    "next": "15.4.6",
+    "pdf-parse": "^1.1.1",
+    "puppeteer": "^24.16.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.4.6"
+    "react-firebase-hooks": "^5.1.1",
+    "react-markdown": "^10.1.0",
+    "react-toastify": "^11.0.5"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4"
   }
 }

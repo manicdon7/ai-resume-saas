@@ -1,26 +1,265 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Modern Dark Theme - Professional & Elegant */
+  --background: #0A0A0A;        /* Deep Black - Rich, professional background */
+  --foreground: #FFFFFF;        /* Pure White - Maximum readability */
+  --primary: #6366F1;           /* Indigo Blue - Modern, trustworthy primary */
+  --primary-foreground: #FFFFFF;
+  --secondary: #8B5CF6;         /* Purple - Creative, innovative secondary */
+  --secondary-foreground: #FFFFFF;
+  --accent: #06B6D4;            /* Cyan - Energetic, tech-focused accent */
+  --accent-foreground: #FFFFFF;
+  --muted: #1F1F1F;            /* Dark Gray - Subtle background variations */
+  --muted-foreground: #A1A1AA; /* Light Gray - Secondary text */
+  --border: #2A2A2A;            /* Medium Gray - Clean borders */
+  --input: #1A1A1A;             /* Darker Gray - Input backgrounds */
+  --ring: #6366F1;              /* Indigo Blue - Focus rings */
+  --radius: 0.75rem;
+
+  /* Font Variables */
+  --font-inter: 'Inter', sans-serif;
+  --font-poppins: 'Poppins', sans-serif;
+  --font-jetbrains-mono: 'JetBrains Mono', monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* Dark theme (default) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0A0A0A;
+    --foreground: #FFFFFF;
+    --primary: #6366F1;
+    --primary-foreground: #FFFFFF;
+    --secondary: #8B5CF6;
+    --secondary-foreground: #FFFFFF;
+    --accent: #06B6D4;
+    --accent-foreground: #FFFFFF;
+    --muted: #1F1F1F;
+    --muted-foreground: #A1A1AA;
+    --border: #2A2A2A;
+    --input: #1A1A1A;
+    --ring: #6366F1;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Light theme variant (if user prefers) */
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #FFFFFF;
+    --foreground: #0A0A0A;
+    --primary: #6366F1;
+    --primary-foreground: #FFFFFF;
+    --secondary: #8B5CF6;
+    --secondary-foreground: #FFFFFF;
+    --accent: #06B6D4;
+    --accent-foreground: #FFFFFF;
+    --muted: #F5F5F5;
+    --muted-foreground: #6B7280;
+    --border: #E5E7EB;
+    --input: #F9FAFB;
+    --ring: #6366F1;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    color: var(--foreground);
+    background: var(--background);
+    font-family: var(--font-inter);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-poppins);
+    color: var(--foreground);
+  }
+
+  code, pre {
+    font-family: var(--font-jetbrains-mono);
+  }
+}
+
+@layer components {
+  /* Modern Glassmorphism Effects for Dark Theme */
+  .glass {
+    background: rgba(99, 102, 241, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(99, 102, 241, 0.1);
+  }
+
+  .glass-dark {
+    background: rgba(26, 26, 26, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(42, 42, 42, 0.8);
+  }
+
+  .glass-primary {
+    background: rgba(99, 102, 241, 0.08);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+  }
+
+  .glass-secondary {
+    background: rgba(139, 92, 246, 0.08);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+  }
+
+  .glass-accent {
+    background: rgba(6, 182, 212, 0.08);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(6, 182, 212, 0.15);
+  }
+
+  /* Modern Button Styles */
+  .btn-primary {
+    background: linear-gradient(to right, var(--primary), var(--secondary));
+    color: var(--primary-foreground);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.25);
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.3);
+  }
+
+  .btn-secondary {
+    background: var(--muted);
+    color: var(--foreground);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(31, 31, 31, 0.8);
+    transform: scale(1.05);
+  }
+
+  .btn-accent {
+    background: linear-gradient(to right, var(--accent), var(--primary));
+    color: var(--accent-foreground);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 15px -3px rgba(6, 182, 212, 0.25);
+  }
+
+  .btn-accent:hover {
+    transform: scale(1.05);
+    box-shadow: 0 20px 25px -5px rgba(6, 182, 212, 0.3);
+  }
+
+  /* Card Styles */
+  .card {
+    background: rgba(31, 31, 31, 0.5);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(42, 42, 42, 0.5);
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transition: all 0.5s ease;
+  }
+
+  .card-hover:hover {
+    transform: scale(1.02);
+    box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.1);
+  }
+
+  /* Input Styles */
+  .input-field {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    color: var(--foreground);
+    transition: all 0.3s ease;
+  }
+
+  .input-field:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: var(--ring);
+    border-color: var(--primary);
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    background: linear-gradient(to right, var(--primary), var(--secondary), var(--accent));
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@layer utilities {
+  /* Animation Delays */
+  .animation-delay-100 { animation-delay: 100ms; }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-300 { animation-delay: 300ms; }
+  .animation-delay-400 { animation-delay: 400ms; }
+  .animation-delay-500 { animation-delay: 500ms; }
+
+  /* Gradient Animation */
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+  }
+
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Custom Scrollbar for Dark Theme */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--muted);
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 5px;
+    border: 2px solid var(--muted);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary);
+  }
+
+  /* Global Transitions */
+  * {
+    transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+  }
+
+  /* Text Selection */
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  /* Focus Visible */
+  .focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
