@@ -80,10 +80,16 @@ export default function RootLayout({ children }) {
         {/* Favicons */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+        {/* Google AdSense Script */}
+        <Script 
+          strategy="afterInteractive"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7877602362549451"
+          crossOrigin="anonymous"
+          async
+        />
       </head>
-      <body
-        className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}
-      >
+      <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}>
         {children}
       </body>
     </html>
