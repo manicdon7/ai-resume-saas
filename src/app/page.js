@@ -131,6 +131,12 @@ export default function Home() {
       return;
     }
 
+    // Make job description required
+    if (!jobDescription.trim()) {
+      toast.error('Job description is required to enhance your resume with AI');
+      return;
+    }
+
     setGenerating(true);
     try {
       const response = await fetch('/api/generate', {
@@ -145,12 +151,12 @@ export default function Home() {
         const enhanced = data.enhancedResume || data.text;
         setOutput(enhanced);
         toast.success('Resume enhanced successfully!');
-        
+
         // Extract name from enhanced resume if not already extracted
         if (!extractedName) {
           await extractNameFromContent(enhanced);
         }
-        
+
         // Trigger job search automatically
         handleSearchJobs(enhanced);
       } else {
@@ -184,7 +190,7 @@ export default function Home() {
           .replace(/^(Name:|Full Name:)/i, '')
           .replace(/['"]/g, '')
           .trim();
-        
+
         if (cleanName && cleanName.toLowerCase() !== 'unknown' && cleanName.length > 1) {
           setExtractedName(cleanName);
           // toast.success(`Name extracted: ${cleanName}`);
@@ -219,6 +225,11 @@ export default function Home() {
       return;
     }
 
+    if (!jobDescription.trim()) {
+      toast.error('Job description is required to generate a tailored cover letter');
+      return;
+    }
+
     if (!extractedName) {
       toast.warning('Extracting name first...');
       await extractNameFromContent(output);
@@ -227,35 +238,92 @@ export default function Home() {
     const nameToUse = extractedName || user?.displayName || 'Professional Candidate';
 
     setGeneratingPDF(true);
+
+    // Show progress toast
+    const progressToast = toast.info('Generating your cover letter PDF...', {
+      autoClose: false,
+      closeButton: false
+    });
+
     try {
+      // Add timeout for the request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        toast.dismiss(progressToast);
+        toast.error('PDF generation timed out. Please try again.');
+      }, 30000); // 30 second timeout
+
       const response = await fetch('/api/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          content: output, 
-          jobDescription: jobDescription || 'General position application',
+        body: JSON.stringify({
+          content: output,
+          jobDescription: jobDescription,
           name: nameToUse
         }),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+      toast.dismiss(progressToast);
+
       if (response.ok) {
+        const contentType = response.headers.get('content-type');
         const blob = await response.blob();
+
+        if (blob.size === 0) {
+          throw new Error('Generated file is empty');
+        }
+
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${nameToUse.replace(/\s+/g, '_')}_Cover_Letter.pdf`;
+
+        // Set filename based on content type
+        const fileExtension = contentType?.includes('pdf') ? 'pdf' : 'html';
+        const fileName = `${nameToUse.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Cover_Letter.${fileExtension}`;
+        a.download = fileName;
+
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        toast.success(`Cover letter PDF downloaded for ${nameToUse}!`);
+
+        // Cleanup
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }, 100);
+
+        if (fileExtension === 'pdf') {
+          toast.success(`Cover letter PDF downloaded for ${nameToUse}!`);
+        } else {
+          toast.warning(`Cover letter generated as HTML for ${nameToUse}. You can print it as PDF from your browser.`);
+        }
       } else {
         const errorData = await response.json().catch(() => ({}));
-        toast.error(errorData.error || 'Failed to generate PDF');
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
     } catch (error) {
+      toast.dismiss(progressToast);
+
+      if (error.name === 'AbortError') {
+        console.log('Request was aborted');
+        return;
+      }
+
       console.error('PDF generation error:', error);
-      toast.error('Error generating cover letter PDF');
+
+      // Provide specific error messages
+      let errorMessage = 'Error generating cover letter';
+      if (error.message.includes('timeout') || error.message.includes('timed out')) {
+        errorMessage = 'Generation timed out. Please try again with a shorter resume.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('empty')) {
+        errorMessage = 'Generated file was empty. Please try again.';
+      }
+
+      toast.error(errorMessage);
     } finally {
       setGeneratingPDF(false);
     }
@@ -332,8 +400,8 @@ export default function Home() {
       setConfirmPassword('');
     } catch (error) {
       console.error('Auth error:', error);
-      const errorMessage = error.code === 'auth/invalid-credential' 
-        ? 'Invalid email or password' 
+      const errorMessage = error.code === 'auth/invalid-credential'
+        ? 'Invalid email or password'
         : error.message;
       toast.error(errorMessage);
     } finally {
@@ -361,6 +429,7 @@ export default function Home() {
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-background font-inter">
@@ -416,7 +485,7 @@ export default function Home() {
       <section className="relative py-20 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5"></div>
         <div className="relative max-w-4xl mx-auto text-center">
-        <h1 className="text-6xl md:text-8xl font-bold text-foreground mb-8 leading-tight">
+          <h1 className="text-6xl md:text-8xl font-bold text-foreground mb-8 leading-tight">
             <span className="gradient-text animate-gradient">
               Transform Your Career
             </span>
@@ -436,7 +505,7 @@ export default function Home() {
               onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
               className="px-8 py-3 border hover:border-white rounded-lg hover:bg-muted/50 transition-all duration-200 font-medium"
             >
-            Learn More
+              Learn More
             </button>
           </div>
         </div>
@@ -483,7 +552,7 @@ export default function Home() {
                   </>
                 )}
               </label>
-              
+
               {fileName && (
                 <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                   <span className="text-sm font-medium flex items-center gap-2">
@@ -508,9 +577,8 @@ export default function Home() {
             <div className="space-y-4">
               <label className="block text-sm font-semibold text-foreground">Resume Content</label>
               <textarea
-                className={`w-full h-40 p-4 rounded-xl border border-border bg-background text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-300 resize-none ${
-                  isResumeFrozen ? 'bg-muted/30 cursor-not-allowed' : ''
-                }`}
+                className={`w-full h-40 p-4 rounded-xl border border-border bg-background text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-300 resize-none ${isResumeFrozen ? 'bg-muted/30 cursor-not-allowed' : ''
+                  }`}
                 placeholder={isResumeFrozen ? "Resume locked - Upload new file to edit" : "Paste your resume here..."}
                 value={resumeText}
                 onChange={(e) => !isResumeFrozen && setResumeText(e.target.value)}

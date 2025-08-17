@@ -85,7 +85,7 @@ export default function RootLayout({ children }) {
 
         {/* Google AdSense Script */}
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7877602362549451"
-          crossorigin="anonymous"></script>
+          crossOrigin="anonymous"></script>
       </head>
       <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}>
         {children}
