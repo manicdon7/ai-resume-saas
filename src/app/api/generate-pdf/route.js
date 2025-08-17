@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
 
+// Modern base64 encoding without Buffer
+function base64Encode(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+// Modern text to bytes conversion
+function stringToUint8Array(str) {
+  const encoder = new TextEncoder();
+  return encoder.encode(str);
+}
+
 export async function POST(request) {
   let browser = null;
 
@@ -249,7 +260,7 @@ I am excited about the possibility of bringing my expertise to your team and wou
     // Wait a bit more for fonts to load
     await page.evaluateHandle('document.fonts.ready');
     
-    // Generate PDF
+    // Generate PDF as Uint8Array (modern approach)
     const pdfBuffer = await page.pdf({
       format: 'A4',
       margin: {
@@ -268,8 +279,10 @@ I am excited about the possibility of bringing my expertise to your team and wou
 
     console.log('PDF generated successfully');
 
-    // Return PDF
-    return new NextResponse(pdfBuffer, {
+    // Convert buffer to Uint8Array for modern handling
+    const pdfUint8Array = new Uint8Array(pdfBuffer);
+    
+    return new NextResponse(pdfUint8Array, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -298,7 +311,9 @@ I am excited about the possibility of bringing my expertise to your team and wou
 <html><head><title>Cover Letter - PDF Generation Failed</title></head>
 <body><h1>PDF Generation Failed</h1><p>There was an error generating the PDF. Please try again or contact support.</p></body></html>`;
       
-      return new NextResponse(fallbackHtml, {
+      const htmlUint8Array = stringToUint8Array(fallbackHtml);
+      
+      return new NextResponse(htmlUint8Array, {
         status: 200,
         headers: {
           'Content-Type': 'text/html',
