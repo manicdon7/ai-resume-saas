@@ -369,11 +369,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-primary to-accent rounded-xl flex items-center justify-center shadow-lg">
+              {/* <div className="w-10 h-10 bg-gradient-to-r from-primary to-accent rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-primary-foreground font-bold text-xl">R</span>
-              </div>
+              </div> */}
               <span className="text-xl font-bold gradient-text animate-gradient">
-                RoleFitAI
+                <Image src="/logo.png" alt="RoleFitAI" width={150} height={200} />
               </span>
             </div>
 
