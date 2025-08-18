@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from 'react-markdown';
 import Image from 'next/image';
 import { auth, googleProvider } from '../../lib/firebase';
@@ -78,6 +78,62 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('resume');
   const [jobKpi, setJobKpi] = useState(null);
   const [validating, setValidating] = useState(false);
+  const [credits, setCredits] = useState(3);
+  const [isPro, setIsPro] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Fetch user credits and pro status after login
+  useEffect(() => {
+    if (user) {
+      // Assume JWT token is stored in localStorage after login
+      const token = window.localStorage.getItem('token');
+      if (token) {
+        fetch('/api/user/credits', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            setCredits(data.credits ?? 3);
+            setIsPro(data.isPro ?? false);
+          });
+      }
+    }
+  }, [user]);
+
+  // Listen for Firebase auth state changes and get token
+  useEffect(() => {
+    if (user) {
+      // Get Firebase ID token when user signs in
+      user.getIdToken().then(firebaseToken => {
+        // Call backend API to exchange Firebase token for JWT
+        fetch('/api/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            uid: user.uid,
+            email: user.email,
+            name: user.displayName,
+            photoURL: user.photoURL
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.token) {
+            // Store JWT token in localStorage
+            window.localStorage.setItem('token', data.token);
+          }
+        })
+        .catch(error => {
+          console.error('Error exchanging token:', error);
+        });
+      });
+    } else {
+      // Remove token when user signs out
+      window.localStorage.removeItem('token');
+    }
+  }, [user]);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -125,40 +181,50 @@ export default function Home() {
     toast.info("Resume section unlocked");
   };
 
+  // Patch: handle enhancement with credit check
   const handleGenerate = async () => {
     if (!resumeText.trim()) {
       toast.error('Please provide resume content');
       return;
     }
-
-    // Make job description required
     if (!jobDescription.trim()) {
       toast.error('Job description is required to enhance your resume with AI');
       return;
     }
-
+    if (!isPro && credits <= 0) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setGenerating(true);
     try {
+      const token = window.localStorage.getItem('token');
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ resume: resumeText, jobDescription }),
       });
-
       const data = await response.json();
-
+      if (response.status === 429) {
+        setShowUpgradeModal(true);
+        setGenerating(false);
+        return;
+      }
       if (data.enhancedResume || data.text) {
         const enhanced = data.enhancedResume || data.text;
         setOutput(enhanced);
         toast.success('Resume enhanced successfully!');
-
         // Extract name from enhanced resume if not already extracted
         if (!extractedName) {
           await extractNameFromContent(enhanced);
         }
-
         // Trigger job search automatically
         handleSearchJobs(enhanced);
+        // Update credits if present in response
+        if (typeof data.credits !== 'undefined') updateCreditsAfterEnhance(data.credits, data.isPro);
+        else setCredits(c => (isPro ? c : c - 1));
       } else {
         toast.error('Failed to enhance resume');
       }
@@ -400,9 +466,22 @@ export default function Home() {
       setConfirmPassword('');
     } catch (error) {
       console.error('Auth error:', error);
-      const errorMessage = error.code === 'auth/invalid-credential'
+      let errorMessage = error.code === 'auth/invalid-credential'
         ? 'Invalid email or password'
         : error.message;
+
+      // Handle Firebase "operation-not-allowed" error
+      if (error.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Email/password sign-in is not enabled in your Firebase project. Please enable it in Firebase Console > Authentication > Sign-in method > Email/Password.';
+      }
+      // Handle Firebase API key or quota errors
+      if (error.code === 'auth/invalid-api-key' || error.message.includes('API key')) {
+        errorMessage = 'Invalid Firebase API key. Please check your Firebase configuration.';
+      }
+      if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+
       toast.error(errorMessage);
     } finally {
       setAuthLoading(false);
@@ -412,11 +491,25 @@ export default function Home() {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      // Remove token from localStorage
+      window.localStorage.removeItem('token');
       toast.success('Signed out successfully!');
     } catch (error) {
       console.error('Sign out error:', error);
       toast.error('Failed to sign out');
     }
+  };
+
+  // Simulate upgrade to Pro
+  const handleUpgradeToPro = async () => {
+    const token = window.localStorage.getItem('token');
+    await fetch('/api/user/upgrade-pro', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setIsPro(true);
+    setShowUpgradeModal(false);
+    toast.success('Pro mode enabled! Unlimited usage unlocked.');
   };
 
   if (loadingAuth) {
@@ -442,7 +535,7 @@ export default function Home() {
                 <span className="text-primary-foreground font-bold text-xl">R</span>
               </div> */}
               <span className="text-xl font-bold gradient-text animate-gradient">
-                <Image src="/logo.png" alt="RoleFitAI" width={150} height={200} />
+                <Image src="/logo.png" alt="RoleFitAI" width={150} height={100} sizes="2xl" />
               </span>
             </div>
 
@@ -598,13 +691,14 @@ export default function Home() {
           {/* Job Description */}
           <div className="mt-8">
             <label className="block text-sm font-semibold text-foreground mb-3">
-              Job Description (Optional)
+              Job Description <span className="text-red-500">*</span> {/* Mark as required */}
             </label>
             <textarea
               className="w-full h-32 p-4 rounded-xl border border-border bg-background text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-300 resize-none"
               placeholder="Paste job description for tailored enhancements..."
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
+              required
             />
           </div>
 
@@ -874,6 +968,31 @@ export default function Home() {
                 {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-card border border-border rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Daily Limit Reached</h2>
+            <p className="text-muted-foreground mb-6">
+              You have used all your free credits for today.<br />
+              Upgrade to <span className="text-accent font-semibold">Pro Mode</span> for unlimited usage!
+            </p>
+            <button
+              onClick={handleUpgradeToPro}
+              className="w-full px-4 py-3 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 font-semibold transition-all duration-200 mb-3"
+            >
+              🚀 Upgrade to Pro (Demo)
+            </button>
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              className="w-full px-4 py-2 mt-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 font-medium transition-all duration-200"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

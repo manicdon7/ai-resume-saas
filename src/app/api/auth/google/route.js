@@ -17,42 +17,31 @@ export async function POST(request) {
     const db = client.db('roleFitAi');
     const users = db.collection('users');
 
-    // Check if user exists
-    let user = await users.findOne({ email });
-
-    if (!user) {
-      // Create new user
-      const result = await users.insertOne({
+    // Always upsert user in MongoDB for Google sign-in
+    const now = new Date();
+    const update = {
+      $set: {
         googleId: uid,
         name,
         email,
         photoURL,
-        isPro: false,
         authProvider: 'google',
-        createdAt: new Date(),
-        lastLogin: new Date()
-      });
-      
-      user = {
-        _id: result.insertedId,
-        name,
-        email,
+        lastLogin: now
+      },
+      $setOnInsert: {
         isPro: false,
-        photoURL
-      };
-    } else {
-      // Update existing user
-      await users.updateOne(
-        { _id: user._id },
-        { 
-          $set: { 
-            lastLogin: new Date(),
-            googleId: uid,
-            photoURL: photoURL || user.photoURL
-          } 
-        }
-      );
-    }
+        credits: 3,
+        lastCreditReset: now,
+        createdAt: now
+      }
+    };
+    await users.updateOne(
+      { email },
+      update,
+      { upsert: true }
+    );
+    // Fetch the latest user document (created if not exist)
+    const user = await users.findOne({ email });
 
     // Generate JWT token
     const token = jwt.sign(
@@ -69,6 +58,7 @@ export async function POST(request) {
         name: user.name,
         email: user.email,
         isPro: user.isPro,
+        credits: user.credits ?? 3,
         photoURL: user.photoURL
       }
     });

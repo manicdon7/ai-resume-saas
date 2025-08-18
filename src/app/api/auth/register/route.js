@@ -36,6 +36,8 @@ export async function POST(request) {
       email,
       password: hashedPassword,
       isPro: false,
+      credits: 3,
+      lastCreditReset: new Date(),
       createdAt: new Date(),
       lastLogin: new Date()
     });
