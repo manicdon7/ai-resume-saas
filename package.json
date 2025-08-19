@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:stripe": "node -r dotenv/config scripts/test-stripe.js",
+    "test:webhook": "node -r dotenv/config scripts/test-stripe-webhook.js"
   },
   "dependencies": {
     "@google-cloud/recaptcha-enterprise": "^6.3.0",
@@ -32,14 +34,17 @@
     "react-dom": "19.1.0",
     "react-firebase-hooks": "^5.1.1",
     "react-markdown": "^10.1.0",
-    "react-toastify": "^11.0.5"
+    "react-toastify": "^11.0.5",
+    "stripe": "^18.4.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "autoprefixer": "^10.4.21",
+    "dotenv": "^16.3.1",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
+    "node-fetch": "^3.3.2",
     "puppeteer": "^24.16.2",
     "tailwindcss": "^4"
   }

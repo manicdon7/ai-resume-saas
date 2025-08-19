@@ -8,6 +8,8 @@ import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPass
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import PricingModal from '@/components/PricingModal';
+import Dashboard from '@/components/Dashboard';
 
 // Enhanced Loading Components
 const LoadingSpinner = ({ size = "default", color = "primary" }) => {
@@ -81,6 +83,10 @@ export default function Home() {
   const [credits, setCredits] = useState(3);
   const [isPro, setIsPro] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showDashboardView, setShowDashboardView] = useState(false);
 
   // Fetch user credits and pro status after login
   useEffect(() => {
@@ -99,6 +105,16 @@ export default function Home() {
       }
     }
   }, [user]);
+  
+  // Event listener for opening pricing modal from other components
+  useEffect(() => {
+    const handleOpenPricingModal = () => setShowPricingModal(true);
+    window.addEventListener('open-pricing-modal', handleOpenPricingModal);
+    
+    return () => {
+      window.removeEventListener('open-pricing-modal', handleOpenPricingModal);
+    };
+  }, []);
 
   // Listen for Firebase auth state changes and get token
   useEffect(() => {
@@ -500,16 +516,33 @@ export default function Home() {
     }
   };
 
-  // Simulate upgrade to Pro
+  // Handle upgrade to Pro with Stripe payment
   const handleUpgradeToPro = async () => {
-    const token = window.localStorage.getItem('token');
-    await fetch('/api/user/upgrade-pro', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    setIsPro(true);
-    setShowUpgradeModal(false);
-    toast.success('Pro mode enabled! Unlimited usage unlocked.');
+    setProcessingPayment(true);
+    try {
+      const token = window.localStorage.getItem('token');
+      const response = await fetch('/api/payment/create-checkout', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.url) {
+        // Redirect to Stripe checkout
+        window.location.href = data.url;
+      } else {
+        toast.error('Failed to initialize payment');
+        setProcessingPayment(false);
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Payment processing failed');
+      setProcessingPayment(false);
+    }
   };
 
   if (loadingAuth) {
@@ -522,6 +555,8 @@ export default function Home() {
       </div>
     );
   }
+
+
 
 
   return (
@@ -539,32 +574,59 @@ export default function Home() {
               </span>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex justify-center items-center space-x-4">
               {user ? (
                 <div className="flex items-center space-x-3">
-                  {user.photoURL && (
-                    <Image
-                      src={user.photoURL}
-                      alt="Profile"
-                      width={32}
-                      height={32}
-                      className="w-8 h-8 rounded-full border-2 border-primary/30"
-                    />
-                  )}
-                  <span className="text-sm font-medium text-foreground hidden sm:block">
-                    {user.displayName || user.email?.split('@')[0]}
-                  </span>
                   <button
-                    onClick={handleSignOut}
-                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted/50 transition-all duration-200"
+                    onClick={() => setShowPricingModal(true)}
+                    className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary border border-border rounded-lg hover:bg-muted/50 transition-all duration-200"
                   >
-                    Sign Out
+                    Pricing
                   </button>
+                  <button
+                    onClick={() => setShowDashboardView(!showDashboardView)}
+                    className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary border border-border rounded-lg hover:bg-muted/50 transition-all duration-200"
+                  >
+                    Dashboard
+                  </button>
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                      className="flex items-center space-x-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-all duration-200"
+                    >
+                      {user.photoURL && (
+                        <Image
+                          src={user.photoURL}
+                          alt="Profile"
+                          width={32}
+                          height={32}
+                          className="w-8 h-8 rounded-full border-2 border-primary/30"
+                        />
+                      )}
+                      <span className="text-sm font-medium text-foreground hidden sm:block">
+                        {user.displayName || user.email?.split('@')[0]}
+                      </span>
+                      <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showProfileDropdown ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                      </svg>
+                    </button>
+                    
+                    {showProfileDropdown && (
+                      <div className="absolute right-0 mt-2 w-48 bg-background/95 backdrop-blur-md border border-border/50 rounded-lg shadow-lg py-1 z-50">
+                        <button
+                          onClick={handleSignOut}
+                          className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted/50 transition-all duration-200"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200"
+                  className="px-4 py-2 border border-white-light text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200"
                 >
                   Sign In
                 </button>
@@ -981,18 +1043,77 @@ export default function Home() {
               You have used all your free credits for today.<br />
               Upgrade to <span className="text-accent font-semibold">Pro Mode</span> for unlimited usage!
             </p>
-            <button
-              onClick={handleUpgradeToPro}
-              className="w-full px-4 py-3 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 font-semibold transition-all duration-200 mb-3"
+            
+            {processingPayment ? (
+              <div className="py-4">
+                <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
+                <p className="text-muted-foreground">Initializing payment...</p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-white/5 rounded-lg p-4 mb-6 border border-border">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-foreground font-medium">RoleFitAI Pro</span>
+                    <span className="text-accent font-bold">$9.99</span>
+                  </div>
+                  <ul className="text-left text-sm text-muted-foreground space-y-2">
+                    <li className="flex items-center">
+                      <svg className="w-4 h-4 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Unlimited resume enhancements
+                    </li>
+                    <li className="flex items-center">
+                      <svg className="w-4 h-4 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Priority processing
+                    </li>
+                    <li className="flex items-center">
+                      <svg className="w-4 h-4 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Advanced ATS optimization
+                    </li>
+                  </ul>
+                </div>
+                
+                <button
+                  onClick={handleUpgradeToPro}
+                  className="w-full px-4 py-3 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 font-semibold transition-all duration-200 mb-3"
+                >
+                  🚀 Upgrade to Pro
+                </button>
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="w-full px-4 py-2 mt-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 font-medium transition-all duration-200"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Pricing Modal */}
+      <PricingModal 
+        isOpen={showPricingModal} 
+        onClose={() => setShowPricingModal(false)} 
+        user={user} 
+      />
+
+      {/* Dashboard View */}
+      {showDashboardView && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-y-auto">
+          <div className="container mx-auto p-4">
+            <button 
+              onClick={() => setShowDashboardView(false)}
+              className="mb-4 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-all duration-200"
             >
-              🚀 Upgrade to Pro (Demo)
+              ← Back to Resume Builder
             </button>
-            <button
-              onClick={() => setShowUpgradeModal(false)}
-              className="w-full px-4 py-2 mt-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 font-medium transition-all duration-200"
-            >
-              Cancel
-            </button>
+            <Dashboard user={user} />
           </div>
         </div>
       )}
