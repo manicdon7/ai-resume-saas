@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import ReactMarkdown from 'react-markdown';
 import Image from 'next/image';
+import Link from 'next/link';
 import { auth, googleProvider } from '../../lib/firebase';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PricingModal from '@/components/PricingModal';
-import Dashboard from '@/components/Dashboard';
 
 // Enhanced Loading Components
 const LoadingSpinner = ({ size = "default", color = "primary" }) => {
@@ -86,7 +86,6 @@ export default function Home() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [showDashboardView, setShowDashboardView] = useState(false);
 
   // Fetch user credits and pro status after login
   useEffect(() => {
@@ -577,18 +576,18 @@ export default function Home() {
             <div className="flex justify-center items-center space-x-4">
               {user ? (
                 <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => setShowPricingModal(true)}
+                  <Link
+                    href="/pricing"
                     className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary border border-border rounded-lg hover:bg-muted/50 transition-all duration-200"
                   >
                     Pricing
-                  </button>
-                  <button
-                    onClick={() => setShowDashboardView(!showDashboardView)}
+                  </Link>
+                  <Link
+                    href="/dashboard"
                     className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary border border-border rounded-lg hover:bg-muted/50 transition-all duration-200"
                   >
                     Dashboard
-                  </button>
+                  </Link>
                   <div className="relative">
                     <button 
                       onClick={() => setShowProfileDropdown(!showProfileDropdown)}
@@ -1103,20 +1102,7 @@ export default function Home() {
         user={user} 
       />
 
-      {/* Dashboard View */}
-      {showDashboardView && (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-y-auto">
-          <div className="container mx-auto p-4">
-            <button 
-              onClick={() => setShowDashboardView(false)}
-              className="mb-4 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-all duration-200"
-            >
-              ← Back to Resume Builder
-            </button>
-            <Dashboard user={user} />
-          </div>
-        </div>
-      )}
+
 
       <ToastContainer
         position="top-right"

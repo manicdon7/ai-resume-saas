@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Check, Sparkles } from 'lucide-react';
 import { redirectToCheckout } from '../../lib/stripe-utils';
 
 export default function PricingModal({ isOpen, onClose, user }) {
@@ -37,15 +38,15 @@ export default function PricingModal({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full shadow-2xl">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-card via-card to-accent/5 border border-border rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl transform transition-all duration-300 scale-100">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-foreground">RoleFitAI Pro</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">RoleFitAI Pro</h2>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1"
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/10"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -53,45 +54,34 @@ export default function PricingModal({ isOpen, onClose, user }) {
 
         <div className="mb-8">
           <div className="text-center mb-6">
-            <h3 className="text-xl font-bold text-foreground mb-2">Upgrade to Pro</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Upgrade to Pro</h3>
             <div className="mb-4">
-              <span className="text-4xl font-bold gradient-text">$9.99</span>
-              <span className="text-muted-foreground text-lg">/month</span>
+              <span className="text-4xl sm:text-5xl font-bold text-foreground">$9.99</span>
+              <span className="text-muted-foreground text-lg ml-1">/month</span>
             </div>
+            <p className="text-sm text-muted-foreground">Billed monthly. Cancel anytime.</p>
           </div>
 
-          <ul className="space-y-4 mb-8">
-            <li className="flex items-start gap-3">
-              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-foreground">Unlimited resume enhancements</span>
+          <ul className="space-y-3 sm:space-y-4 mb-8">
+            <li className="flex items-start gap-3 animate-fade-in" style={{animationDelay: '50ms'}}>
+              <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-foreground text-sm sm:text-base">Unlimited resume enhancements</span>
             </li>
-            <li className="flex items-start gap-3">
-              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-foreground">Priority processing</span>
+            <li className="flex items-start gap-3 animate-fade-in" style={{animationDelay: '100ms'}}>
+              <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-foreground text-sm sm:text-base">Priority processing</span>
             </li>
-            <li className="flex items-start gap-3">
-              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-foreground">Advanced ATS optimization</span>
+            <li className="flex items-start gap-3 animate-fade-in" style={{animationDelay: '150ms'}}>
+              <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-foreground text-sm sm:text-base">Advanced ATS optimization</span>
             </li>
-            <li className="flex items-start gap-3">
-              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-foreground">Premium support</span>
+            <li className="flex items-start gap-3 animate-fade-in" style={{animationDelay: '200ms'}}>
+              <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-foreground text-sm sm:text-base">Premium support</span>
+            </li>
+            <li className="flex items-start gap-3 animate-fade-in" style={{animationDelay: '250ms'}}>
+              <Check className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-foreground text-sm sm:text-base">All premium templates</span>
             </li>
           </ul>
         </div>
@@ -105,13 +95,16 @@ export default function PricingModal({ isOpen, onClose, user }) {
           <div className="space-y-3">
             <button
               onClick={handleUpgradeToPro}
-              className="w-full px-4 py-3 bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-xl hover:shadow-lg hover:scale-[1.02] font-semibold transition-all duration-200"
+              className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 active:bg-primary/95 font-semibold transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             >
-              🚀 Upgrade Now
+              <span className="flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Upgrade to Pro
+              </span>
             </button>
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 bg-muted text-foreground rounded-xl hover:bg-muted/80 font-medium transition-all duration-200"
+              className="w-full px-4 py-2 bg-muted text-muted-foreground hover:text-foreground rounded-xl hover:bg-muted/80 font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-muted focus:ring-offset-2"
             >
               Maybe Later
             </button>

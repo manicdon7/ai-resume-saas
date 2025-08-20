@@ -57,48 +57,56 @@ function PaymentSuccessContent() {
 
   return (
     <>
-      <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-500/20">
-        <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-500/20 animate-bounce">
+        <svg className="w-10 h-10 text-green-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
         </svg>
       </div>
       
-      <h1 className="text-3xl font-bold text-foreground mb-4">Payment Successful!</h1>
+      <h1 className="text-3xl font-bold text-foreground mb-4 animate-fade-in">Payment Successful!</h1>
       
-      <p className="text-muted-foreground mb-8">
+      <p className="text-muted-foreground mb-8 animate-fade-in-delay">
         Thank you for upgrading to RoleFitAI Pro! You now have unlimited access to all our premium features.
       </p>
       
-      <div className="bg-muted/50 rounded-lg p-4 mb-8 border border-border/50">
-        <h2 className="text-xl font-semibold text-foreground mb-2">Pro Benefits</h2>
-        <ul className="text-muted-foreground text-left space-y-2">
-          <li className="flex items-center">
-            <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="bg-muted/50 rounded-lg p-6 mb-8 border border-border/50 transform transition-all duration-300 hover:scale-105">
+        <h2 className="text-xl font-semibold text-foreground mb-4">Pro Benefits</h2>
+        <ul className="text-muted-foreground text-left space-y-3">
+          <li className="flex items-center transition-all duration-200 hover:translate-x-1">
+            <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
             </svg>
-            Unlimited resume enhancements
+            <span className="hover:text-foreground transition-colors">Unlimited resume enhancements</span>
           </li>
-          <li className="flex items-center">
-            <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <li className="flex items-center transition-all duration-200 hover:translate-x-1">
+            <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
             </svg>
-            Priority processing
+            <span className="hover:text-foreground transition-colors">Priority processing</span>
           </li>
-          <li className="flex items-center">
-            <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <li className="flex items-center transition-all duration-200 hover:translate-x-1">
+            <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
             </svg>
-            Advanced ATS optimization
+            <span className="hover:text-foreground transition-colors">Advanced ATS optimization</span>
           </li>
         </ul>
       </div>
       
-      <Link 
-        href="/"
-        className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium inline-block"
-      >
-        Return to Dashboard
-      </Link>
+      <div className="flex gap-4 justify-center">
+        <Link 
+          href="/dashboard"
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium inline-block transform hover:scale-105 hover:shadow-lg"
+        >
+          Go to Dashboard
+        </Link>
+        <Link 
+          href="/pricing"
+          className="px-6 py-3 border border-border text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-all duration-200 font-medium inline-block transform hover:scale-105"
+        >
+          View Pricing
+        </Link>
+      </div>
     </>
   );
 }
