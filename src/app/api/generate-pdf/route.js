@@ -146,7 +146,7 @@ I am excited about the possibility of bringing my expertise to your team and wou
       y: yPosition,
       size: titleFontSize,
       font: helveticaBold,
-      color: rgb(0.17, 0.24, 0.31), // Dark blue-gray
+      color: rgb(0.1, 0.1, 0.1), // Match resume header color
     });
 
     // Underline
@@ -154,8 +154,8 @@ I am excited about the possibility of bringing my expertise to your team and wou
     page.drawLine({
       start: { x: margin, y: yPosition },
       end: { x: width - margin, y: yPosition },
-      thickness: 2,
-      color: rgb(0.2, 0.59, 0.86), // Blue
+      thickness: 1,
+      color: rgb(0.2, 0.59, 0.86), // Blue - Match resume styling
     });
 
     yPosition -= 40;

@@ -10,6 +10,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PricingModal from '@/components/PricingModal';
+import { useRouter } from 'next/navigation';
 
 // Enhanced Loading Components
 const LoadingSpinner = ({ size = "default", color = "primary" }) => {
@@ -86,6 +87,12 @@ export default function Home() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [generatingResumePDF, setGeneratingResumePDF] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editedContent, setEditedContent] = useState('');
+  const [coverLetterContent, setCoverLetterContent] = useState('');
+  const [editingCoverLetter, setEditingCoverLetter] = useState(false);
+  const router = useRouter();
 
   // Fetch user credits and pro status after login
   useEffect(() => {
@@ -300,6 +307,95 @@ export default function Home() {
     }
   };
 
+  // Handle editing content
+  const handleEditResume = () => {
+    if (!isPro) {
+      toast.error('Pro subscription required for edit functionality');
+      return;
+    }
+    setEditMode(true);
+    setEditedContent(output);
+  };
+
+  const handleSaveEdit = () => {
+    setOutput(editedContent);
+    setEditMode(false);
+    toast.success('Resume content updated!');
+  };
+
+  const handleCancelEdit = () => {
+    setEditMode(false);
+    setEditedContent('');
+  };
+
+  // Generate cover letter content for editing
+  const generateCoverLetterForEditing = async () => {
+    if (!output) {
+      toast.error('No enhanced resume content available');
+      return;
+    }
+
+    if (!jobDescription.trim()) {
+      toast.error('Job description is required');
+      return;
+    }
+
+    const nameToUse = extractedName || user?.displayName || 'Professional Candidate';
+    
+    try {
+      const response = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Write a professional cover letter for ${nameToUse} applying for the position described below. Use the resume information to highlight relevant experience and skills.\n\nRESUME CONTENT:\n${output}\n\nJOB DESCRIPTION:\n${jobDescription}\n\nRequirements:\n1. Write in first person as ${nameToUse}\n2. Keep it professional but engaging\n3. Write 3-4 paragraphs\n4. Do NOT include placeholders\n5. Make each paragraph flow naturally\n\nWrite only the body paragraphs of the cover letter.`
+          }],
+          model: 'openai',
+        }),
+      });
+
+      if (response.ok) {
+        const content = await response.text();
+        const cleanContent = content
+          .replace(/```/g, '')
+          .replace(/\*\*/g, '')
+          .replace(/#{1,6}\s*/g, '')
+          .replace(/^\s*-\s*/gm, '')
+          .replace(/Dear\s+.*?,?\s*/i, '')
+          .replace(/(Sincerely|Best regards|Thank you).*$/i, '')
+          .trim();
+        setCoverLetterContent(cleanContent);
+        setEditingCoverLetter(true);
+      } else {
+        throw new Error('Failed to generate content');
+      }
+    } catch (error) {
+      console.error('Error generating cover letter:', error);
+      const fallbackContent = `I am writing to express my strong interest in this position. After reviewing the requirements, I believe my background and experience make me an excellent candidate for this role.\n\nMy professional experience has provided me with the skills and knowledge necessary to excel in this position. I am particularly drawn to this opportunity because it aligns perfectly with my career goals and passion for contributing to innovative projects.\n\nI am excited about the possibility of bringing my expertise to your team and would welcome the opportunity to discuss how my background can contribute to your organization's continued success.`;
+      setCoverLetterContent(fallbackContent);
+      setEditingCoverLetter(true);
+    }
+  };
+
+  const handleEditCoverLetter = () => {
+    if (!isPro) {
+      toast.error('Pro subscription required for edit functionality');
+      return;
+    }
+    generateCoverLetterForEditing();
+  };
+
+  const handleSaveCoverLetter = () => {
+    setEditingCoverLetter(false);
+    toast.success('Cover letter ready for download!');
+  };
+
+  const handleCancelCoverLetterEdit = () => {
+    setEditingCoverLetter(false);
+    setCoverLetterContent('');
+  };
+
   const handleGeneratePDF = async () => {
     if (!output) {
       toast.error('No enhanced resume content to generate cover letter');
@@ -339,9 +435,10 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: output,
+          content: coverLetterContent || output,
           jobDescription: jobDescription,
-          name: nameToUse
+          name: nameToUse,
+          useCustomContent: !!coverLetterContent
         }),
         signal: controller.signal
       });
@@ -544,6 +641,158 @@ export default function Home() {
     }
   };
 
+  // Function to extract only resume content (exclude cover letter)
+  const extractResumeOnly = (content) => {
+    if (!content) return '';
+    
+    // Split content by common separators
+    const lines = content.split('\n');
+    const resumeLines = [];
+    let foundCoverLetterStart = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim().toLowerCase();
+      
+      // Check for cover letter indicators
+      if (line.includes('cover letter') || 
+          line.includes('dear hiring manager') ||
+          line.includes('dear sir/madam') ||
+          line.includes('to whom it may concern') ||
+          (line.includes('dear') && line.includes('manager')) ||
+          line.includes('sincerely') ||
+          line.includes('best regards') ||
+          line.includes('yours faithfully') ||
+          (line.startsWith('i am') && line.includes('position')) ||
+          (line.includes('i am') && line.includes('enthusiastic')) ||
+          (line.includes('excited') && line.includes('opportunity'))) {
+        foundCoverLetterStart = true;
+        break;
+      }
+      
+      resumeLines.push(lines[i]);
+    }
+    
+    return resumeLines.join('\n').trim();
+  };
+
+  // Handle resume PDF download
+  const handleGenerateResumePDF = async () => {
+    if (!output) {
+      toast.error('No enhanced resume content to download');
+      return;
+    }
+
+    if (!extractedName) {
+      toast.warning('Extracting name first...');
+      await extractNameFromContent(output);
+    }
+
+    const nameToUse = extractedName || user?.displayName || 'Professional Candidate';
+
+    // Extract only resume content, excluding cover letter
+    const resumeOnlyContent = editedContent ? 
+      extractResumeOnly(editedContent) : 
+      extractResumeOnly(output);
+    
+    if (!resumeOnlyContent.trim()) {
+      toast.error('No resume content found to generate PDF');
+      return;
+    }
+
+    setGeneratingResumePDF(true);
+
+    const progressToast = toast.info('Generating your resume PDF...', {
+      autoClose: false,
+      closeButton: false
+    });
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        toast.dismiss(progressToast);
+        toast.error('PDF generation timed out. Please try again.');
+      }, 30000);
+
+      const response = await fetch('/api/generate-resume-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: resumeOnlyContent,
+          name: nameToUse
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      toast.dismiss(progressToast);
+
+      if (response.ok) {
+        const blob = await response.blob();
+
+        if (blob.size === 0) {
+          throw new Error('Generated file is empty');
+        }
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${nameToUse.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Enhanced_Resume.pdf`;
+
+        document.body.appendChild(a);
+        a.click();
+
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }, 100);
+
+        toast.success(`Resume PDF downloaded for ${nameToUse}!`);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      }
+    } catch (error) {
+      toast.dismiss(progressToast);
+
+      if (error.name === 'AbortError') {
+        return;
+      }
+
+      console.error('Resume PDF generation error:', error);
+      let errorMessage = 'Error generating resume PDF';
+      if (error.message.includes('timeout')) {
+        errorMessage = 'Generation timed out. Please try again.';
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+
+      toast.error(errorMessage);
+    } finally {
+      setGeneratingResumePDF(false);
+    }
+  };
+
+  // Navigate to ATS analysis page
+  const handleShowATSAnalysis = () => {
+    if (!output || !jobDescription) {
+      toast.error('Resume and job description are required for ATS analysis');
+      return;
+    }
+
+    // Store data in localStorage as backup
+    localStorage.setItem('ats-resume-content', output);
+    localStorage.setItem('ats-job-description', jobDescription);
+
+    // Navigate to analysis page with URL parameters
+    const params = new URLSearchParams({
+      resume: encodeURIComponent(output),
+      job: encodeURIComponent(jobDescription)
+    });
+    
+    router.push(`/analysis?${params.toString()}`);
+  };
+
   if (loadingAuth) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -674,12 +923,12 @@ export default function Home() {
             <p className="text-lg text-muted-foreground">Upload or paste your resume to get AI-optimized results</p>
             {extractedName && (
               <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg">
-                <span className="text-sm font-medium text-primary">👤 Extracted Name: {extractedName}</span>
+                <span className="text-sm font-medium text-primary">Name: {extractedName}</span>
               </div>
             )}
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
             {/* File Upload */}
             <div className="space-y-4">
               <input
@@ -698,8 +947,16 @@ export default function Home() {
                   <FileUploadLoader />
                 ) : (
                   <>
-                    <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">
-                      {fileName ? "📄" : "📁"}
+                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">
+                      {fileName ? (
+                        <svg className="w-10 h-10 mx-auto text-primary" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-10 h-10 mx-auto text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                      )}
                     </div>
                     <div className="font-semibold text-foreground">{fileName || "Upload Resume"}</div>
                     <div className="text-sm text-muted-foreground">PDF, DOC, DOCX, TXT supported</div>
@@ -709,8 +966,11 @@ export default function Home() {
 
               {fileName && (
                 <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <span className="text-sm font-medium flex items-center gap-2">
-                    📄 {fileName}
+                <span className="text-sm font-medium flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                    </svg>
+                    {fileName}
                   </span>
                   <button
                     onClick={() => {
@@ -721,7 +981,9 @@ export default function Home() {
                     }}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    ✕
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
               )}
@@ -770,7 +1032,16 @@ export default function Home() {
               disabled={!resumeText.trim() || generating}
               className="px-12 py-4 border border-white rounded-xl text-lg font-medium cursor-pointer bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {generating ? <ButtonLoader text="Enhancing Resume..." /> : '✨ Enhance Resume with AI'}
+              {generating ? (
+                <ButtonLoader text="Enhancing Resume..." />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                  Enhance Resume with AI
+                </div>
+              )}
             </button>
           </div>
         </div>
@@ -780,30 +1051,153 @@ export default function Home() {
           <div className="mt-12 bg-card border border-border rounded-2xl p-8 shadow-lg">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
               <h2 className="text-2xl font-bold text-foreground">Enhanced Resume</h2>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 <button
                   onClick={handleCopy}
                   disabled={copied}
                   className="px-4 py-2 text-sm font-medium cursor-pointer bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-all duration-200"
                 >
-                  {copied ? '✅ Copied!' : '📋 Copy'}
+                  {copied ? (
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Copied!
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Copy
+                    </div>
+                  )}
+                </button>
+                {isPro && (
+                  <button
+                    onClick={handleEditResume}
+                    className="px-4 py-2 text-sm font-medium cursor-pointer bg-primary/20 text-primary border border-primary/30 rounded-lg hover:bg-primary/30 transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
+                    </div>
+                  </button>
+                )}
+                <button
+                  onClick={handleGenerateResumePDF}
+                  disabled={generatingResumePDF}
+                  className="px-4 py-2 text-sm cursor-pointer font-medium bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 disabled:opacity-50 transition-all duration-200"
+                >
+                  {generatingResumePDF ? (
+                    <ButtonLoader text="Generating..." />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Resume PDF
+                    </div>
+                  )}
                 </button>
                 <button
                   onClick={handleGeneratePDF}
                   disabled={generatingPDF}
                   className="px-4 py-2 text-sm cursor-pointer font-medium bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-all duration-200"
                 >
-                  {generatingPDF ? <PDFLoader /> : '📄 Cover Letter PDF'}
+                  {generatingPDF ? (
+                    <PDFLoader />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Cover Letter PDF
+                    </div>
+                  )}
                 </button>
+                {isPro && (
+                  <button
+                    onClick={handleEditCoverLetter}
+                    className="px-4 py-2 text-sm font-medium cursor-pointer bg-accent/20 text-accent border border-accent/30 rounded-lg hover:bg-accent/30 transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit Cover Letter
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Resume Output */}
-            <div className="bg-muted/20 rounded-xl p-6 max-h-96 overflow-y-auto border border-border">
-              <ReactMarkdown class="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-code:text-accent">
-                {output}
-              </ReactMarkdown>
-            </div>
+            {editMode ? (
+              <div className="space-y-4">
+                <textarea
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  className="w-full h-96 p-6 rounded-xl border border-border bg-background text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-300 resize-none"
+                  placeholder="Edit your enhanced resume content..."
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSaveEdit}
+                    className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-2 cursor-pointer">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Save Changes
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-6 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 font-medium transition-all duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-muted/20 rounded-xl p-6 max-h-96 overflow-y-auto border border-border">
+                <ReactMarkdown class="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-code:text-accent">
+                  {output}
+                </ReactMarkdown>
+              </div>
+            )}
+
+            {/* ATS Analysis Navigation */}
+            {output && jobDescription && (
+              <div className="mt-8 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl p-6">
+                <div className="text-center space-y-4">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-primary to-accent rounded-full mb-4">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground">ATS Optimization Analysis</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Get detailed insights on how your resume performs with Applicant Tracking Systems
+                  </p>
+                  <button
+                    onClick={handleShowATSAnalysis}
+                    className="px-8 py-3 bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                      </svg>
+                      Show ATS Analysis
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Job Search Results */}
             {searchingJobs && (
@@ -816,7 +1210,11 @@ export default function Home() {
               <div className="mt-8">
                 <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="text-2xl">💼</span>
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                      </svg>
+                    </div>
                     <div>
                       <div className="text-lg font-bold text-primary">
                         {jobResults.length} Matching Jobs Found
@@ -833,7 +1231,7 @@ export default function Home() {
                   )}
                 </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {jobResults.map((job, index) => (
                     <div key={index} className="bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-all duration-300">
                       <div className="flex items-center gap-3 mb-4">
@@ -873,10 +1271,12 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 lg:gap-8">
             <div className="bg-card border border-border rounded-2xl p-8 text-center hover:shadow-lg transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-r from-primary to-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl">🤖</span>
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-4">AI Optimization</h3>
               <p className="text-muted-foreground">
@@ -886,7 +1286,9 @@ export default function Home() {
 
             <div className="bg-card border border-border rounded-2xl p-8 text-center hover:shadow-lg transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-r from-secondary to-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl">📊</span>
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-4">ATS Compatible</h3>
               <p className="text-muted-foreground">
@@ -896,7 +1298,9 @@ export default function Home() {
 
             <div className="bg-card border border-border rounded-2xl p-8 text-center hover:shadow-lg transition-all duration-300">
               <div className="w-16 h-16 bg-gradient-to-r from-accent to-primary rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl">⚡</span>
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-4">Instant Results</h3>
               <p className="text-muted-foreground">
@@ -1081,7 +1485,7 @@ export default function Home() {
                   onClick={handleUpgradeToPro}
                   className="w-full px-4 py-3 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 font-semibold transition-all duration-200 mb-3"
                 >
-                  🚀 Upgrade to Pro
+                  ↗ Upgrade to Pro
                 </button>
                 <button
                   onClick={() => setShowUpgradeModal(false)}
@@ -1091,6 +1495,53 @@ export default function Home() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Cover Letter Edit Modal */}
+      {editingCoverLetter && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-foreground">Edit Cover Letter</h2>
+              <button
+                onClick={handleCancelCoverLetterEdit}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <textarea
+                value={coverLetterContent}
+                onChange={(e) => setCoverLetterContent(e.target.value)}
+                className="w-full h-96 p-6 rounded-xl border border-border bg-background text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-300 resize-none"
+                placeholder="Edit your cover letter content..."
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveCoverLetter}
+                  className="px-6 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 font-medium transition-all duration-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save & Close
+                  </div>
+                </button>
+                <button
+                  onClick={handleCancelCoverLetterEdit}
+                  className="px-6 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 font-medium transition-all duration-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

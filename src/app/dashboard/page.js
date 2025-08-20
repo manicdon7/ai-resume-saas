@@ -32,7 +32,7 @@ export default function DashboardPage() {
   const fetchUserData = async (currentUser) => {
     setUserDataLoading(true);
     try {
-      const token = await currentUser.getIdToken();
+      const token = window.localStorage.getItem('token');
       
       const [creditsResponse, activityResponse] = await Promise.all([
         fetch('/api/user/credits', {
@@ -163,23 +163,51 @@ export default function DashboardPage() {
         <div className="border-b border-border mb-8">
           <nav className="flex space-x-8">
             {[
-              { id: 'overview', label: 'Overview', icon: '📊' },
-              { id: 'activity', label: 'Recent Activity', icon: '📈' },
-              { id: 'settings', label: 'Settings', icon: '⚙️' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
+              { id: 'overview', label: 'Overview', icon: 'overview' },
+              { id: 'activity', label: 'Recent Activity', icon: 'activity' },
+              { id: 'settings', label: 'Settings', icon: 'settings' }
+            ].map((tab) => {
+              const getTabIcon = (iconType) => {
+                switch (iconType) {
+                  case 'overview':
+                    return (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    );
+                  case 'activity':
+                    return (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    );
+                  case 'settings':
+                    return (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    );
+                  default:
+                    return null;
+                }
+              };
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
+                    activeTab === tab.id
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {getTabIcon(tab.icon)}
+                  {tab.label}
+                </button>
+              );
+            })}
           </nav>
         </div>
 
@@ -192,18 +220,28 @@ export default function DashboardPage() {
                 <h3 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Link href="/" className="p-4 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors">
-                    <div className="text-primary text-lg mb-2">✨</div>
+                    <div className="text-primary text-lg mb-2">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
                     <div className="font-medium text-foreground">Enhance Resume</div>
                     <div className="text-sm text-muted-foreground">
                       {isPro ? 'Unlimited uses' : `${credits}/3 remaining`}
                     </div>
                   </Link>
                   
-                  <div className="p-4 bg-muted/50 rounded-lg opacity-60 cursor-not-allowed">
-                    <div className="text-muted-foreground text-lg mb-2">🎯</div>
+                  <Link href="/analysis" className="p-4 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors">
+                    <div className="text-primary text-lg mb-2">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
                     <div className="font-medium text-foreground">ATS Optimizer</div>
-                    <div className="text-sm text-muted-foreground">Coming Soon</div>
-                  </div>
+                    <div className="text-sm text-muted-foreground">
+                      {isPro ? 'Full analysis available' : 'Basic + Pro preview'}
+                    </div>
+                  </Link>
                 </div>
               </div>
 
@@ -264,10 +302,10 @@ export default function DashboardPage() {
               <div className="bg-card border border-border rounded-xl p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Coming Soon</h3>
                 <div className="space-y-3">
-                  <div className="p-3 bg-muted/30 rounded-lg">
-                    <div className="font-medium text-foreground">ATS Optimizer</div>
-                    <div className="text-sm text-muted-foreground">Optimize for applicant tracking systems</div>
-                  </div>
+                  <Link href="/analysis" className="block p-3 bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors">
+                    <div className="font-medium text-foreground">Enhanced ATS Features</div>
+                    <div className="text-sm text-muted-foreground">Advanced keyword analysis and section optimization</div>
+                  </Link>
                   <div className="p-3 bg-muted/30 rounded-lg">
                     <div className="font-medium text-foreground">Resume to Portfolio</div>
                     <div className="text-sm text-muted-foreground">Convert resume to online portfolio</div>
@@ -299,7 +337,11 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <div className="text-4xl mb-4">📋</div>
+                <div className="text-4xl mb-4">
+                  <svg className="w-16 h-16 mx-auto text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
                 <div className="text-muted-foreground">No recent activity</div>
               </div>
             )}

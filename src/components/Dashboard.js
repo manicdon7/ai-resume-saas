@@ -101,14 +101,17 @@ export default function Dashboard({ user }) {
           </div>
         </div>
         
-        <div className="bg-muted/50 rounded-xl p-6 border border-border relative overflow-hidden">
-          <div className="absolute top-2 right-2 px-2 py-1 bg-accent/20 text-accent text-xs font-medium rounded-full">
-            Coming Soon
+        <div className="bg-muted/50 rounded-xl p-6 border border-border hover:bg-muted/70 transition-colors cursor-pointer" onClick={() => window.location.href = '/analysis'}>
+          <div className="absolute top-2 right-2 px-2 py-1 bg-primary/20 text-primary text-xs font-medium rounded-full">
+            {isPro ? 'Pro Features' : 'Basic + Pro Preview'}
           </div>
           <h3 className="text-lg font-semibold text-foreground mb-4">ATS Optimizer</h3>
           <p className="text-muted-foreground">
             Analyze your resume against ATS systems and get detailed optimization recommendations.
           </p>
+          <div className="mt-4 flex items-center text-primary text-sm font-medium">
+            <span>Try ATS Analysis →</span>
+          </div>
         </div>
         
         <div className="bg-muted/50 rounded-xl p-6 border border-border relative overflow-hidden">
