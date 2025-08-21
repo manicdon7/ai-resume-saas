@@ -198,6 +198,55 @@
     border-color: var(--primary);
   }
 
+  /* Mobile Navigation Styles */
+  .mobile-nav {
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .mobile-nav.open {
+    transform: translateX(0);
+  }
+
+  .mobile-nav-backdrop {
+    backdrop-filter: blur(10px);
+    background: rgba(10, 10, 10, 0.9);
+  }
+
+  /* Hide scrollbar for sliding tabs */
+  .sliding-tabs {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .sliding-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Mobile tab indicators */
+  .tab-indicator {
+    transition: all 0.3s ease;
+  }
+
+  /* Smooth transitions for all elements */
+  .transition-all {
+    transition: all 0.3s ease;
+  }
+
+  /* Mobile responsive utilities */
+  @media (max-width: 768px) {
+    .mobile-full-width {
+      width: 100vw;
+      margin-left: calc(-50vw + 50%);
+      margin-right: calc(-50vw + 50%);
+    }
+    
+    .mobile-padding {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
   /* Gradient Text */
   .gradient-text {
     background: linear-gradient(to right, var(--primary), var(--secondary), var(--accent));
