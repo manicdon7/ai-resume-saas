@@ -103,7 +103,6 @@ export default function CoverLetterPage() {
 
   const handleGenerateCoverLetter = async () => {
     if (!companyName.trim() || !position.trim()) return;
-    
     setGenerating(true);
     
     try {
