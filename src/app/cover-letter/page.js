@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useSelector, useDispatch } from 'react-redux';
 import { 
   FileText, 
   Sparkles, 
@@ -24,12 +23,11 @@ import {
 
 export default function CoverLetterPage() {
   const router = useRouter();
-  const dispatch = useDispatch();
   
-  // Redux state
-  const resumeContent = useSelector(state => state.resume.content);
-  const resumeFileName = useSelector(state => state.resume.fileName);
-  const isResumeUploaded = useSelector(state => state.resume.isUploaded);
+  // Local state for resume data
+  const [resumeContent, setResumeContent] = useState('');
+  const [resumeFileName, setResumeFileName] = useState('');
+  const [isResumeUploaded, setIsResumeUploaded] = useState(false);
   
   const [generating, setGenerating] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
@@ -67,22 +65,32 @@ export default function CoverLetterPage() {
     { id: 'long', name: 'Long (6+ paragraphs)', description: 'Detailed and thorough' }
   ];
 
-  useEffect(() => {
-    if (!isResumeUploaded) {
-      router.push('/dashboard');
-    }
+    useEffect(() => {
+    // Load resume data from localStorage
+    const loadResumeData = () => {
+      const savedResume = localStorage.getItem('resume-content');
+      const savedFileName = localStorage.getItem('resume-filename');
+      
+      if (savedResume) {
+        setResumeContent(savedResume);
+        setResumeFileName(savedFileName || 'resume.txt');
+        setIsResumeUploaded(true);
+        extractContactInfo(savedResume);
+      } else {
+        router.push('/dashboard');
+      }
+    };
     
-    // Extract contact info from resume
-    extractContactInfo();
-  }, [isResumeUploaded, router, resumeContent]);
+    loadResumeData();
+  }, [router]);
 
-  const extractContactInfo = () => {
-    if (!resumeContent) return;
+  const extractContactInfo = (content) => {
+    if (!content) return;
     
     // Basic extraction - in a real app, this would be more sophisticated
-    const lines = resumeContent.split('\n');
-    const emailMatch = resumeContent.match(/[\w.-]+@[\w.-]+\.\w+/);
-    const phoneMatch = resumeContent.match(/[\d\s-()]{10,}/);
+    const lines = content.split('\n');
+    const emailMatch = content.match(/[\w.-]+@[\w.-]+\.\w+/);
+    const phoneMatch = content.match(/[\d\s-()]{10,}/);
     const nameMatch = lines[0]?.trim();
     
     setContactInfo(prev => ({
