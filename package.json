@@ -16,6 +16,7 @@
     "bcryptjs": "^3.0.2",
     "chrome-aws-lambda": "^10.1.0",
     "firebase": "^12.1.0",
+    "framer-motion": "^12.23.12",
     "helmet": "^8.1.0",
     "html-pdf-node": "^1.0.8",
     "html2canvas": "^1.4.1",
