@@ -10,6 +10,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PricingModal from '@/components/PricingModal';
+import Navbar from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
 
 // Enhanced Loading Components
@@ -86,8 +87,8 @@ export default function Home() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+
   const [generatingResumePDF, setGeneratingResumePDF] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState('');
@@ -810,199 +811,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background font-inter">
-      {/* Modern Mobile-Responsive Navigation */}
-      <nav className="sticky top-0 z-50 backdrop-blur-md bg-background/80 shadow-lg border-b border-border/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <span className="text-xl font-bold gradient-text animate-gradient">
-                <Image src="/logo.png" alt="RoleFitAI" width={150} height={100} sizes="2xl" className="h-8 w-auto" />
-              </span>
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-4">
-              {user ? (
-                <div className="flex items-center space-x-3">
-                  <Link
-                    href="/pricing"
-                    className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary border border-border rounded-lg hover:bg-muted/50 transition-all duration-200"
-                  >
-                    Pricing
-                  </Link>
-                  <Link
-                    href="/dashboard"
-                    className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary border border-border rounded-lg hover:bg-muted/50 transition-all duration-200"
-                  >
-                    Dashboard
-                  </Link>
-                  <div className="relative">
-                    <button 
-                      onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                      className="flex items-center space-x-2 px-2 py-1 rounded-lg hover:bg-muted/50 transition-all duration-200"
-                    >
-                      {user.photoURL && (
-                        <Image
-                          src={user.photoURL}
-                          alt="Profile"
-                          width={32}
-                          height={32}
-                          className="w-8 h-8 rounded-full border-2 border-primary/30"
-                        />
-                      )}
-                      <span className="text-sm font-medium text-foreground hidden lg:block">
-                        {user.displayName || user.email?.split('@')[0]}
-                      </span>
-                      <svg className="w-4 h-4 text-foreground transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ transform: showProfileDropdown ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    
-                    {showProfileDropdown && (
-                      <div className="absolute right-0 mt-2 w-48 bg-background/95 backdrop-blur-md border border-border/50 rounded-lg shadow-lg py-1 z-50">
-                        <button
-                          onClick={handleSignOut}
-                          className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted/50 transition-all duration-200"
-                        >
-                          Sign Out
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="px-4 py-2 border border-white-light text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200"
-                >
-                  Sign In
-                </button>
-              )}
-            </div>
-
-            {/* Mobile Menu Button - Hamburger */}
-            <div className="md:hidden">
-              <button
-                onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-                aria-label="Toggle menu"
-              >
-                <div className="w-6 h-6 flex flex-col justify-center items-center space-y-1">
-                  <span className={`bg-white block transition-all duration-300 ease-out h-0.5 w-6 rounded-sm ${showMobileMenu ? 'rotate-45 translate-y-1.5' : ''}`}></span>
-                  <span className={`bg-white block transition-all duration-300 ease-out h-0.5 w-6 rounded-sm ${showMobileMenu ? 'opacity-0' : 'opacity-100'}`}></span>
-                  <span className={`bg-white block transition-all duration-300 ease-out h-0.5 w-6 rounded-sm ${showMobileMenu ? '-rotate-45 -translate-y-1.5' : ''}`}></span>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Sliding Menu - Left to Right */}
-        <div className={`md:hidden fixed inset-0 z-40 transition-transform duration-300 ease-in-out ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
-          <div className="absolute inset-0 bg-gray-900" onClick={() => setShowMobileMenu(false)}></div>
-          <div className="absolute left-0 top-0 h-full w-4/5 max-w-sm bg-gray-900 shadow-xl">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-8">
-                <span className="text-lg font-bold text-white">Menu</span>
-                <button
-                  onClick={() => setShowMobileMenu(false)}
-                  className="p-2 rounded-lg hover:bg-gray-800 transition-all duration-200"
-                  aria-label="Close menu"
-                >
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <nav className="space-y-4">
-                {user ? (
-                  <>
-                    <div className="flex items-center space-x-3 mb-6 p-3 bg-gray-800 rounded-lg">
-                      {user.photoURL && (
-                        <Image
-                          src={user.photoURL}
-                          alt="Profile"
-                          width={40}
-                          height={40}
-                          className="w-10 h-10 rounded-full border-2 border-primary/30"
-                        />
-                      )}
-                      <div>
-                        <div className="font-medium text-foreground">{user.displayName || user.email?.split('@')[0]}</div>
-                        <div className="text-sm text-muted-foreground">{user.email}</div>
-                      </div>
-                    </div>
-                    
-                    <Link
-                      href="/dashboard"
-                      onClick={() => setShowMobileMenu(false)}
-                      className="flex items-center space-x-3 px-4 py-3 text-white hover:bg-gray-800 rounded-lg transition-all duration-200"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      <span>Dashboard</span>
-                    </Link>
-                    
-                    <Link
-                      href="/pricing"
-                      onClick={() => setShowMobileMenu(false)}
-                      className="flex items-center space-x-3 px-4 py-3 text-white hover:bg-gray-800 rounded-lg transition-all duration-200"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>Pricing</span>
-                    </Link>
-                    
-                    <button
-                      onClick={() => {
-                        handleSignOut();
-                        setShowMobileMenu(false);
-                      }}
-                      className="flex items-center space-x-3 px-4 py-3 text-white hover:bg-gray-800 rounded-lg transition-all duration-200 w-full text-left"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      <span>Sign Out</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => {
-                        setShowAuthModal(true);
-                        setShowMobileMenu(false);
-                      }}
-                      className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all duration-200"
-                    >
-                      Sign In
-                    </button>
-                    
-                    <div className="text-center py-4">
-                      <span className="text-gray-300">New to RoleFitAI?</span>
-                      <button
-                        onClick={() => {
-                          setShowAuthModal(true);
-                          setIsSignUp(true);
-                          setShowMobileMenu(false);
-                        }}
-                        className="ml-2 text-primary hover:text-primary/80 transition-colors"
-                      >
-                        Create Account
-                      </button>
-                    </div>
-                  </>
-                )}
-              </nav>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar user={user} onSignOut={handleSignOut} />
 
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden">

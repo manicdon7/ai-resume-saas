@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../../lib/firebase';
+import Navbar from '@/components/Navbar';
 
 function PaymentSuccessContent() {
   const router = useRouter();
@@ -112,18 +115,39 @@ function PaymentSuccessContent() {
 }
 
 export default function PaymentSuccess() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-transparent to-accent/5 flex items-center justify-center p-4">
-      <div className="bg-background/80 backdrop-blur-md rounded-xl border border-border/30 shadow-lg p-8 max-w-md w-full text-center">
-        <Suspense fallback={
-          <div className="py-8">
-            <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto"></div>
-            <p className="text-white mt-4">Verifying your payment...</p>
-          </div>
-        }>
-          <PaymentSuccessContent />
-        </Suspense>
+    <>
+      <Navbar user={user} onSignOut={handleSignOut} />
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-transparent to-accent/5 flex items-center justify-center p-4">
+        <div className="bg-background/80 backdrop-blur-md rounded-xl border border-border/30 shadow-lg p-8 max-w-md w-full text-center">
+          <Suspense fallback={
+            <div className="py-8">
+              <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto"></div>
+              <p className="text-white mt-4">Verifying your payment...</p>
+            </div>
+          }>
+            <PaymentSuccessContent />
+          </Suspense>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

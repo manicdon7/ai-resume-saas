@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import Link from 'next/link';
+import Navbar from '@/components/Navbar';
 
 export default function DashboardPage() {
   const [user, setUser] = useState(null);
@@ -66,6 +67,15 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      window.localStorage.removeItem('token');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
   const refreshData = () => {
     if (user) {
       fetchUserData(user);
@@ -95,6 +105,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background">
+      <Navbar user={user} onSignOut={handleSignOut} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -227,81 +238,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Mobile Sliding Menu - Left to Right */}
-          <div className={`md:hidden fixed inset-0 z-40 transition-transform duration-300 ease-in-out ${showMobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
-            <div className="absolute inset-0 bg-gray-900" onClick={() => setShowMobileMenu(false)}></div>
-            <div className="absolute left-0 top-0 h-full w-4/5 max-w-sm bg-gray-900 shadow-xl">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-8">
-                  <span className="text-lg font-bold text-white">Menu</span>
-                  <button
-                    onClick={() => setShowMobileMenu(false)}
-                    className="p-2 rounded-lg hover:bg-gray-800 transition-all duration-200"
-                    aria-label="Close menu"
-                  >
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
 
-                <nav className="space-y-4">
-                  <div className="flex items-center space-x-3 mb-6 p-3 bg-gray-800 rounded-lg">
-                    {user?.photoURL && (
-                      <Image
-                        src={user.photoURL}
-                        alt="Profile"
-                        width={40}
-                        height={40}
-                        className="w-10 h-10 rounded-full border-2 border-primary/30"
-                      />
-                    )}
-                    <div>
-                      <div className="font-medium text-white">{user?.displayName || user?.email?.split('@')[0]}</div>
-                      <div className="text-sm text-gray-300">{user?.email}</div>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => {
-                      setActiveTab('overview');
-                      setShowMobileMenu(false);
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-white hover:bg-gray-800 rounded-lg transition-all duration-200 text-left"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                    <span>Overview</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      setActiveTab('activity');
-                      setShowMobileMenu(false);
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-white hover:bg-gray-800 rounded-lg transition-all duration-200 text-left"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span>Activity</span>
-                  </button>
-                  
-                  <Link
-                    href="/"
-                    onClick={() => setShowMobileMenu(false)}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-white hover:bg-gray-800 rounded-lg transition-all duration-200"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    <span>Home</span>
-                  </Link>
-                </nav>
-              </div>
-            </div>
-          </div>
 
         {/* Tab Content */}
         {activeTab === 'overview' && (

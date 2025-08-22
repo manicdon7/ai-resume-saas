@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import ATSOptimizer from '../../components/ATSOptimizer';
+import Navbar from '@/components/Navbar';
 import Link from 'next/link';
 
 // Component that uses useSearchParams - wrapped in Suspense
@@ -90,6 +91,15 @@ function AnalysisContent() {
     router.push('/');
   };
 
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -114,13 +124,11 @@ function AnalysisContent() {
   if (showForm || (!resumeContent || !jobDescription)) {
     return (
       <div className="min-h-screen bg-background">
+        <Navbar user={user} onSignOut={handleSignOut} />
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="text-center mb-8">
-              <Link href="/" className="mb-6 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors">
-                <span className="mr-2">←</span> Back to Home
-              </Link>
               <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-primary to-accent rounded-full mb-4">
                 <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
                   <div className="w-4 h-4 bg-primary rounded-full"></div>
@@ -197,6 +205,7 @@ function AnalysisContent() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navbar user={user} onSignOut={handleSignOut} />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Header */}

@@ -17,8 +17,8 @@ export async function GET(request) {
     
     // Fetch user activity from database
     const activities = await db
-      .collection('user_activity')
-      .find({ userId })
+      .collection('users')
+      .find({ _id })
       .sort({ timestamp: -1 })
       .limit(50)
       .toArray();

@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Check, ArrowRight, Sparkles, Star } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../../lib/firebase';
+import Navbar from '@/components/Navbar';
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
@@ -80,6 +83,23 @@ export default function PricingPage() {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [loading, setLoading] = useState({});
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
   const handleCheckout = async (planName, planType) => {
     const plan = pricingPlans.find(p => p.name === planName);
@@ -149,6 +169,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      <Navbar user={user} onSignOut={handleSignOut} />
       <div className="container mx-auto px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12">

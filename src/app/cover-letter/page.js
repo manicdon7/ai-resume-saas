@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { auth } from '../../../lib/firebase';
+import Navbar from '@/components/Navbar';
 import { 
   FileText, 
   Sparkles, 
@@ -23,6 +25,7 @@ import {
 
 export default function CoverLetterPage() {
   const router = useRouter();
+  const [user, setUser] = useState(null);
   
   // Local state for resume data
   const [resumeContent, setResumeContent] = useState('');
@@ -66,6 +69,11 @@ export default function CoverLetterPage() {
   ];
 
     useEffect(() => {
+    // Check authentication
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+    });
+    
     // Load resume data from localStorage
     const loadResumeData = () => {
       const savedResume = localStorage.getItem('resume-content');
@@ -82,7 +90,17 @@ export default function CoverLetterPage() {
     };
     
     loadResumeData();
+    return unsubscribe;
   }, [router]);
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
   const extractContactInfo = (content) => {
     if (!content) return;
@@ -166,28 +184,7 @@ export default function CoverLetterPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
-      {/* Header */}
-      <header className="bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="flex items-center text-foreground hover:text-primary transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back to Dashboard
-              </button>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent rounded-lg flex items-center justify-center">
-                <FileText className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">Cover Letter Generator</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navbar user={user} onSignOut={handleSignOut} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import Link from 'next/link';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../../lib/firebase';
+import Navbar from '@/components/Navbar';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -12,6 +15,23 @@ export default function Contact() {
     message: ''
   });
   const [sending, setSending] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,6 +54,7 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <Navbar user={user} onSignOut={handleSignOut} />
       <div className="max-w-4xl mx-auto px-4 py-16">
         <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-8">
           <h1 className="text-4xl font-bold text-white mb-8 text-center">Contact Us</h1>
