@@ -84,9 +84,10 @@ export default function CoverLetterPage() {
         setResumeFileName(savedFileName || 'resume.txt');
         setIsResumeUploaded(true);
         extractContactInfo(savedResume);
-      } else {
-        router.push('/dashboard');
-      }
+      } 
+      // else {
+      //   router.push('/dashboard');
+      // }
     };
     
     loadResumeData();

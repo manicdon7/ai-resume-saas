@@ -21,7 +21,7 @@ const Navbar = ({ user, onSignOut }) => {
   const navItems = [
     { name: 'Home', href: '/', icon: Home },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-    { name: 'Resume', href: '/resume-enhance', icon: FileText },
+    // { name: 'Resume', href: '/resume-enhance', icon: FileText },
     { name: 'Cover Letter', href: '/cover-letter', icon: Mail },
     { name: 'Jobs', href: '/jobs', icon: Briefcase },
     { name: 'Analysis', href: '/analysis', icon: BarChart3 },
