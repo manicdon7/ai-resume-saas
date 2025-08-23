@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../lib/firebase-admin';
-import { uploadResume } from '../../../../lib/resume-parser';
-import { verifyIdToken } from '../../../../lib/firebase-admin';
+import { verifyIdToken } from '../../../../../src/lib/firebase-admin';
+import { uploadResume } from '../../../../../src/lib/resume-parser';
 
 export async function POST(request) {
   try {

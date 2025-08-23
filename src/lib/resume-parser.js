@@ -1,27 +1,23 @@
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+// Mock implementations for development
+let mockStorage = null;
+let mockFirestore = null;
 
-// Mock resume parser - Replace with actual resume parsing service
+try {
+  const { getStorage, ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+  const { getFirestore, doc, setDoc } = await import('firebase/firestore');
+  mockStorage = { getStorage, ref, uploadBytes, getDownloadURL };
+  mockFirestore = { getFirestore, doc, setDoc };
+} catch (error) {
+  console.warn('Firebase modules not available, using mock implementations');
+}
+
+// Mock resume parser for development
 export async function uploadResume(file, userId) {
   try {
-    const storage = getStorage();
-    const db = getFirestore();
+    // Mock file upload - return mock URL
+    const mockDownloadURL = `https://mock-storage.example.com/resumes/${userId}/${Date.now()}_${file.name}`;
     
-    // Create unique filename
-    const timestamp = Date.now();
-    const filename = `resumes/${userId}/${timestamp}_${file.name}`;
-    const storageRef = ref(storage, filename);
-    
-    // Upload file
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    
-    // Mock resume parsing - In production, use services like:
-    // - OpenAI GPT for resume parsing
-    // - Google Cloud Document AI
-    // - AWS Textract
-    // - Resume parsing APIs like Sovren or RChilli
-    
+    // Mock resume parsing results
     const mockSkills = [
       'JavaScript', 'React', 'Node.js', 'TypeScript', 'Python', 'SQL', 'Git', 'Docker'
     ];
@@ -43,27 +39,12 @@ export async function uploadResume(file, userId) {
       }
     ];
     
-    // Save resume metadata to Firestore
-    const resumeData = {
-      userId,
-      filename: file.name,
-      fileUrl: downloadURL,
-      fileSize: file.size,
-      fileType: file.type,
-      uploadedAt: new Date().toISOString(),
-      skills: mockSkills,
-      experience: mockExperience,
-      education: mockEducation,
-      parsed: true
-    };
-    
-    await setDoc(doc(db, 'resumes', `${userId}_${timestamp}`), resumeData);
-    
+    // Return mock data for development
     return {
       skills: mockSkills,
       experience: mockExperience,
       education: mockEducation,
-      fileUrl: downloadURL
+      fileUrl: mockDownloadURL
     };
     
   } catch (error) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { verifyIdToken } from '../../../../lib/firebase-admin';
-import { saveApplication } from '../../../../lib/job-applications';
+import { verifyIdToken } from '../../../../../src/lib/firebase-admin';
+import { saveApplication } from '../../../../../src/lib/job-applications';
 
 export async function POST(request) {
   try {

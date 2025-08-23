@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyIdToken } from '../../../../lib/firebase-admin';
+import { verifyIdToken } from '../../../../../src/lib/firebase-admin';
 import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export async function POST(request) {

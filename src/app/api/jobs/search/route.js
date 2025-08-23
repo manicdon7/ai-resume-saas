@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyIdToken } from '../../../../lib/firebase-admin';
+import { verifyIdToken } from '../../../../../src/lib/firebase-admin';
 
 // Mock job search API - Replace with actual job search provider
 const MOCK_JOBS = [
