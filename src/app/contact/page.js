@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import Navbar from '@/components/Navbar';
+import { ToastContainer } from 'react-toastify';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
