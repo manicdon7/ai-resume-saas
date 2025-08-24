@@ -2,9 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSelector, useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
+import { setUser, signOut as reduxSignOut } from '../../store/slices/authSlice';
+import { setResumeText, setParsedData } from '../../store/slices/resumeSlice';
 import Navbar from '@/components/Navbar';
+import { toast } from 'react-hot-toast';
 import { 
   FileText, 
   Sparkles, 
@@ -20,22 +25,33 @@ import {
   Mail,
   Phone,
   MapPin,
-  Calendar
+  Calendar,
+  Upload,
+  Edit3,
+  Save,
+  X,
+  Zap,
+  Target
 } from 'lucide-react';
 
 export default function CoverLetterPage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const dispatch = useDispatch();
+  const { user, isPro, credits } = useSelector(state => state.auth);
+  const { resumeText, parsedData } = useSelector(state => state.resume);
   
-  // Local state for resume data
-  const [resumeContent, setResumeContent] = useState('');
-  const [resumeFileName, setResumeFileName] = useState('');
-  const [isResumeUploaded, setIsResumeUploaded] = useState(false);
+  // Enhanced resume functionality states
+  const [enhancedResume, setEnhancedResume] = useState('');
+  const [enhancing, setEnhancing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileName, setFileName] = useState('');
   
   const [generating, setGenerating] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editedCoverLetter, setEditedCoverLetter] = useState('');
   
   // Form states
   const [companyName, setCompanyName] = useState('');
@@ -68,469 +84,613 @@ export default function CoverLetterPage() {
     { id: 'long', name: 'Long (6+ paragraphs)', description: 'Detailed and thorough' }
   ];
 
-    useEffect(() => {
-    // Check authentication
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        dispatch(setUser(currentUser));
+      } else {
+        dispatch(reduxSignOut());
+        router.push('/');
+      }
     });
     
-    // Load resume data from localStorage
-    const loadResumeData = () => {
-      const savedResume = localStorage.getItem('resume-content');
-      const savedFileName = localStorage.getItem('resume-filename');
-      
-      if (savedResume) {
-        setResumeContent(savedResume);
-        setResumeFileName(savedFileName || 'resume.txt');
-        setIsResumeUploaded(true);
-        extractContactInfo(savedResume);
-      } 
-      // else {
-      //   router.push('/dashboard');
-      // }
-    };
+    // Initialize contact info from parsed data
+    if (parsedData) {
+      setContactInfo({
+        name: parsedData.name || '',
+        email: parsedData.email || '',
+        phone: parsedData.phone || '',
+        address: parsedData.location || '',
+        linkedin: parsedData.linkedin || '',
+        date: new Date().toLocaleDateString()
+      });
+    }
     
-    loadResumeData();
-    return unsubscribe;
-  }, [router]);
+    return () => unsubscribe();
+  }, [dispatch, router, parsedData]);
 
   const handleSignOut = async () => {
     try {
       await auth.signOut();
+      dispatch(reduxSignOut());
       router.push('/');
     } catch (error) {
       console.error('Sign out error:', error);
     }
   };
 
-  const extractContactInfo = (content) => {
-    if (!content) return;
-    
-    // Basic extraction - in a real app, this would be more sophisticated
-    const lines = content.split('\n');
-    const emailMatch = content.match(/[\w.-]+@[\w.-]+\.\w+/);
-    const phoneMatch = content.match(/[\d\s-()]{10,}/);
-    const nameMatch = lines[0]?.trim();
-    
-    setContactInfo(prev => ({
-      ...prev,
-      name: nameMatch || '',
-      email: emailMatch?.[0] || '',
-      phone: phoneMatch?.[0] || ''
-    }));
-  };
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-  const handleGenerateCoverLetter = async () => {
-    if (!companyName.trim() || !position.trim()) return;
-    setGenerating(true);
-    
+    setUploading(true);
+    setFileName(file.name);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
     try {
-      const response = await fetch('/api/generate-cover-letter', {
+      const response = await fetch('/api/extract-text', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          resumeContent,
-          companyName,
-          position,
-          hiringManager,
-          jobDescription,
-          tone,
-          length,
-          contactInfo,
-          includeAddress
-        }),
+        body: formData,
       });
 
       const data = await response.json();
 
-      if (data.coverLetter) {
-        setCoverLetter(data.coverLetter);
-        setShowPreview(true);
+      if (data.text) {
+        dispatch(setResumeText(data.text));
+        await parseResumeData(data.text);
+        toast.success(`Successfully uploaded ${file.name}`);
+      } else {
+        toast.error('Failed to extract text from file');
       }
     } catch (error) {
-      console.error('Generation error:', error);
+      console.error('Upload error:', error);
+      toast.error('Error uploading file');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const parseResumeData = async (text) => {
+    try {
+      const response = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Extract contact information from this resume and return as JSON: name, email, phone, location. Resume text: ${text.substring(0, 1000)}`
+          }],
+          model: 'openai',
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.text();
+        try {
+          const parsed = JSON.parse(result);
+          dispatch(setParsedData(parsed));
+        } catch (e) {
+          // Fallback parsing
+          const basicData = {
+            name: extractName(text),
+            email: extractEmail(text),
+            phone: extractPhone(text),
+            location: ''
+          };
+          dispatch(setParsedData(basicData));
+        }
+      }
+    } catch (error) {
+      console.error('Parse error:', error);
+    }
+  };
+
+  const extractName = (text) => {
+    const lines = text.split('\n');
+    return lines[0]?.trim() || 'Professional Candidate';
+  };
+
+  const extractEmail = (text) => {
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+    const match = text.match(emailRegex);
+    return match ? match[0] : '';
+  };
+
+  const extractPhone = (text) => {
+    const phoneRegex = /\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}/;
+    const match = text.match(phoneRegex);
+    return match ? match[0] : '';
+  };
+
+  // Enhanced resume generation
+  const handleEnhanceResume = async () => {
+    if (!resumeText.trim()) {
+      toast.error('Please upload a resume first');
+      return;
+    }
+    if (!jobDescription.trim()) {
+      toast.error('Job description is required to enhance your resume');
+      return;
+    }
+    if (!isPro && credits <= 0) {
+      toast.error('Insufficient credits. Please upgrade to Pro.');
+      return;
+    }
+
+    setEnhancing(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ resume: resumeText, jobDescription }),
+      });
+      
+      const data = await response.json();
+      if (data.enhancedResume || data.text) {
+        const enhanced = data.enhancedResume || data.text;
+        setEnhancedResume(enhanced);
+        toast.success('Resume enhanced successfully!');
+      } else {
+        toast.error('Failed to enhance resume');
+      }
+    } catch (error) {
+      console.error('Enhancement error:', error);
+      toast.error('Error enhancing resume');
+    } finally {
+      setEnhancing(false);
+    }
+  };
+
+  // Cover letter generation
+  const handleGenerateCoverLetter = async () => {
+    if (!resumeText && !enhancedResume) {
+      toast.error('Please upload and enhance your resume first');
+      return;
+    }
+    if (!companyName || !position) {
+      toast.error('Company name and position are required');
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const resumeToUse = enhancedResume || resumeText;
+      const response = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Write a professional cover letter for ${contactInfo.name || 'the candidate'} applying for the ${position} position at ${companyName}. Use this resume information: ${resumeToUse.substring(0, 2000)}. Job description: ${jobDescription}. Tone: ${tone}. Length: ${length}. ${hiringManager ? `Address it to ${hiringManager}.` : 'Use a generic greeting.'} Write only the body paragraphs.`
+          }],
+          model: 'openai',
+        }),
+      });
+
+      if (response.ok) {
+        const content = await response.text();
+        const cleanContent = content
+          .replace(/```/g, '')
+          .replace(/\*\*/g, '')
+          .replace(/#{1,6}\s*/g, '')
+          .trim();
+        setCoverLetter(cleanContent);
+        setEditedCoverLetter(cleanContent);
+        toast.success('Cover letter generated successfully!');
+      } else {
+        throw new Error('Failed to generate content');
+      }
+    } catch (error) {
+      console.error('Error generating cover letter:', error);
+      toast.error('Error generating cover letter');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleCopyToClipboard = async (text) => {
+  const handleEditCoverLetter = () => {
+    if (!isPro) {
+      toast.error('Pro subscription required for editing functionality');
+      return;
+    }
+    setEditMode(true);
+  };
+
+  const handleSaveEdit = () => {
+    setCoverLetter(editedCoverLetter);
+    setEditMode(false);
+    toast.success('Cover letter updated!');
+  };
+
+  const handleCancelEdit = () => {
+    setEditedCoverLetter(coverLetter);
+    setEditMode(false);
+  };
+
+  const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      const fullLetter = formatCoverLetter();
+      await navigator.clipboard.writeText(fullLetter);
       setCopySuccess(true);
+      toast.success('Cover letter copied to clipboard!');
       setTimeout(() => setCopySuccess(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } catch (error) {
+      toast.error('Failed to copy to clipboard');
     }
   };
 
-  const handleDownloadCoverLetter = () => {
-    const element = document.createElement('a');
-    const file = new Blob([coverLetter], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = `${companyName}-cover-letter-${Date.now()}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+  const formatCoverLetter = () => {
+    const header = includeAddress ? `${contactInfo.name}\n${contactInfo.email}\n${contactInfo.phone}\n${contactInfo.address}\n\n${contactInfo.date}\n\n${companyName}\n\n` : '';
+    const greeting = hiringManager ? `Dear ${hiringManager},\n\n` : 'Dear Hiring Manager,\n\n';
+    const closing = '\n\nSincerely,\n' + contactInfo.name;
+    return header + greeting + (editMode ? editedCoverLetter : coverLetter) + closing;
   };
 
-  const formatCoverLetterForDisplay = (text) => {
-    return text.split('\n').map((line, index) => {
-      if (line.trim() === '') return <br key={index} />;
-      return <p key={index} className="mb-2">{line}</p>;
-    });
+  const handleDownloadPDF = async () => {
+    if (!coverLetter) {
+      toast.error('Please generate a cover letter first');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: formatCoverLetter(),
+          name: contactInfo.name || 'cover_letter',
+          useCustomContent: true
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${contactInfo.name || 'cover'}_letter.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Cover letter PDF downloaded!');
+      } else {
+        toast.error('Failed to generate PDF');
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Error generating PDF');
+    }
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-foreground mb-4">Please sign in</h2>
+          <button
+            onClick={() => router.push('/')}
+            className="text-primary hover:underline"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black">
       <Navbar user={user} onSignOut={handleSignOut} />
-
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-8"
-        >
-          <h1 className="text-4xl font-bold text-foreground mb-4">Generate Your Cover Letter</h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Create personalized, professional cover letters tailored to specific companies and positions using your resume.
-          </p>
-        </motion.div>
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Form */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Company & Position */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-card border border-border rounded-2xl p-6"
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
             >
-              <h2 className="text-xl font-semibold text-foreground mb-4">Job Details</h2>
-              <div className="grid md:grid-cols-2 gap-4">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">Cover Letter Generator</h1>
+              <p className="text-gray-300">Create professional cover letters with AI assistance</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Resume Upload & Enhancement */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Resume Upload */}
+            <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 shadow-lg backdrop-blur-sm">
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Resume Upload
+              </h2>
+              
+              {!resumeText ? (
+                <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-purple-400/50 transition-colors">
+                  <input
+                    type="file"
+                    id="resume-upload"
+                    accept=".pdf,.doc,.docx,.txt"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={uploading}
+                  />
+                  <label htmlFor="resume-upload" className="cursor-pointer">
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                        <p className="text-sm text-gray-400">Processing {fileName}...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3">
+                        <Upload className="w-8 h-8 text-purple-400" />
+                        <div>
+                          <p className="font-medium text-white">Upload Resume</p>
+                          <p className="text-sm text-gray-400">PDF, DOC, DOCX, TXT</p>
+                        </div>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 bg-green-900/20 border border-green-700/50 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-green-400" />
+                    <span className="text-sm font-medium text-green-300">Resume uploaded</span>
+                  </div>
+                  
+                  {/* Resume Enhancement Section */}
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      Enhance Resume
+                    </h3>
+                    <textarea
+                      placeholder="Paste job description here to enhance your resume..."
+                      value={jobDescription}
+                      onChange={(e) => setJobDescription(e.target.value)}
+                      className="w-full h-32 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
+                    />
+                    <button
+                      onClick={handleEnhanceResume}
+                      disabled={enhancing || !jobDescription.trim()}
+                      className="w-full mt-3 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-purple-500/25"
+                    >
+                      {enhancing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Enhancing...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4" />
+                          Enhance Resume
+                        </>
+                      )}
+                    </button>
+                    
+                    {enhancedResume && (
+                      <div className="mt-3 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Target className="w-4 h-4 text-blue-400" />
+                          <span className="text-sm font-medium text-blue-300">Resume Enhanced</span>
+                        </div>
+                        <p className="text-xs text-blue-400">Your resume has been optimized for the job description</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Middle Column - Form */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Job Details */}
+            <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+              <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Briefcase className="w-5 h-5" />
+                Job Details
+              </h2>
+              
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    <Building className="w-4 h-4 inline mr-2" />
+                  <label className="block text-sm font-medium text-white mb-1">
                     Company Name *
                   </label>
                   <input
                     type="text"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                    placeholder="Acme Corporation"
-                    required
+                    className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
+                    placeholder="Enter company name"
                   />
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    <Briefcase className="w-4 h-4 inline mr-2" />
-                    Position Title *
+                  <label className="block text-sm font-medium text-white mb-1">
+                    Position *
                   </label>
                   <input
                     type="text"
                     value={position}
                     onChange={(e) => setPosition(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                    placeholder="Senior Software Engineer"
-                    required
+                    className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
+                    placeholder="Enter position title"
                   />
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    <User className="w-4 h-4 inline mr-2" />
-                    Hiring Manager
+                  <label className="block text-sm font-medium text-white mb-1">
+                    Hiring Manager (Optional)
                   </label>
                   <input
                     type="text"
                     value={hiringManager}
                     onChange={(e) => setHiringManager(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                    placeholder="John Smith (or leave blank for default)"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    <Calendar className="w-4 h-4 inline mr-2" />
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={contactInfo.date}
-                    onChange={(e) => setContactInfo(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+                    className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
+                    placeholder="Enter hiring manager name"
                   />
                 </div>
               </div>
-            </motion.div>
+            </div>
 
             {/* Contact Information */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-card border border-border rounded-2xl p-6"
-            >
-              <h2 className="text-xl font-semibold text-foreground mb-4">Your Contact Information</h2>
-              <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+              <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Contact Information
+              </h2>
+              
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    <User className="w-4 h-4 inline mr-2" />
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Full Name
                   </label>
                   <input
                     type="text"
                     value={contactInfo.name}
-                    onChange={(e) => setContactInfo(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                    placeholder="Your full name"
+                    onChange={(e) => setContactInfo({...contactInfo, name: e.target.value})}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground"
                   />
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    <Mail className="w-4 h-4 inline mr-2" />
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Email
                   </label>
                   <input
                     type="email"
                     value={contactInfo.email}
-                    onChange={(e) => setContactInfo(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                    placeholder="your.email@example.com"
+                    onChange={(e) => setContactInfo({...contactInfo, email: e.target.value})}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground"
                   />
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    <Phone className="w-4 h-4 inline mr-2" />
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Phone
                   </label>
                   <input
                     type="tel"
                     value={contactInfo.phone}
-                    onChange={(e) => setContactInfo(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    <MapPin className="w-4 h-4 inline mr-2" />
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    value={contactInfo.address}
-                    onChange={(e) => setContactInfo(prev => ({ ...prev, address: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                    placeholder="City, State"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    LinkedIn Profile
-                  </label>
-                  <input
-                    type="url"
-                    value={contactInfo.linkedin}
-                    onChange={(e) => setContactInfo(prev => ({ ...prev, linkedin: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                    placeholder="linkedin.com/in/yourprofile"
+                    onChange={(e) => setContactInfo({...contactInfo, phone: e.target.value})}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground"
                   />
                 </div>
               </div>
-            </motion.div>
+            </div>
 
-            {/* Job Description */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-card border border-border rounded-2xl p-6"
+            {/* Generate Button */}
+            <button
+              onClick={handleGenerateCoverLetter}
+              disabled={generating || !companyName || !position || (!resumeText && !enhancedResume)}
+              className="w-full px-6 py-3 bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
             >
-              <h2 className="text-xl font-semibold text-foreground mb-4">Job Description</h2>
-              <textarea
-                className="w-full h-32 p-4 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all resize-none"
-                placeholder="Paste the job description here to tailor your cover letter specifically for this position..."
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-              />
-            </motion.div>
-
-            {/* Tone and Length */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-card border border-border rounded-2xl p-6"
-            >
-              <h2 className="text-xl font-semibold text-foreground mb-4">Style & Format</h2>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-sm font-medium text-foreground mb-3">Tone</h3>
-                  <div className="space-y-2">
-                    {tones.map((toneOption) => (
-                      <label key={toneOption.id} className="flex items-start space-x-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="tone"
-                          value={toneOption.id}
-                          checked={tone === toneOption.id}
-                          onChange={(e) => setTone(e.target.value)}
-                          className="mt-1 text-primary focus:ring-primary"
-                        />
-                        <div>
-                          <div className="font-medium text-foreground">{toneOption.name}</div>
-                          <div className="text-sm text-muted-foreground">{toneOption.description}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-foreground mb-3">Length</h3>
-                  <div className="space-y-2">
-                    {lengths.map((lengthOption) => (
-                      <label key={lengthOption.id} className="flex items-start space-x-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="length"
-                          value={lengthOption.id}
-                          checked={length === lengthOption.id}
-                          onChange={(e) => setLength(e.target.value)}
-                          className="mt-1 text-primary focus:ring-primary"
-                        />
-                        <div>
-                          <div className="font-medium text-foreground">{lengthOption.name}</div>
-                          <div className="text-sm text-muted-foreground">{lengthOption.description}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+              {generating ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  Generate Cover Letter
+                </>
+              )}
+            </button>
           </div>
 
-          {/* Right Column - Generated Cover Letter */}
-          <div className="space-y-6">
-            {/* Action Buttons */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-card border border-border rounded-2xl p-6"
-            >
-              <h2 className="text-xl font-semibold text-foreground mb-4">Actions</h2>
-              <div className="space-y-3">
-                <button
-                  onClick={handleGenerateCoverLetter}
-                  disabled={generating || !companyName.trim() || !position.trim()}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-lg hover:from-primary/90 hover:to-accent/90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {generating ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2"></div>
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Generate Cover Letter
-                    </>
-                  )}
-                </button>
-                
+          {/* Right Column - Preview */}
+          <div className="lg:col-span-1">
+            <div className="bg-card border border-border rounded-xl p-6 shadow-sm sticky top-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                  <Eye className="w-5 h-5" />
+                  Preview
+                </h2>
                 {coverLetter && (
-                  <>
+                  <div className="flex gap-2">
+                    {isPro && (
+                      <button
+                        onClick={handleEditCoverLetter}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                        title="Edit cover letter"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleCopyToClipboard(coverLetter)}
-                      className="w-full px-4 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-colors flex items-center justify-center"
+                      onClick={handleCopy}
+                      className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                      title="Copy to clipboard"
                     >
-                      {copySuccess ? (
-                        <>
-                          <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-5 h-5 mr-2" />
-                          Copy to Clipboard
-                        </>
-                      )}
+                      {copySuccess ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                     </button>
-                    
                     <button
-                      onClick={handleDownloadCoverLetter}
-                      className="w-full px-4 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors flex items-center justify-center"
+                      onClick={handleDownloadPDF}
+                      className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                      title="Download PDF"
                     >
-                      <Download className="w-5 h-5 mr-2" />
-                      Download
+                      <Download className="w-4 h-4" />
                     </button>
-                  </>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Generated Cover Letter */}
-            {coverLetter && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="bg-card border border-border rounded-2xl p-6"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-foreground">Generated Cover Letter</h2>
-                  <button
-                    onClick={() => setShowPreview(!showPreview)}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPreview ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                
-                {showPreview && (
-                  <div className="bg-muted/20 rounded-lg p-4 max-h-96 overflow-y-auto">
-                    <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
-                      {formatCoverLetterForDisplay(coverLetter)}
-                    </div>
                   </div>
                 )}
-              </motion.div>
-            )}
-
-            {/* Quick Tips */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-card border border-border rounded-2xl p-6"
-            >
-              <h2 className="text-xl font-semibold text-foreground mb-4">Cover Letter Tips</h2>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-start space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-                  <span className="text-muted-foreground">Address it to a specific person when possible</span>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-                  <span className="text-muted-foreground">Show enthusiasm for the company and role</span>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-                  <span className="text-muted-foreground">Highlight relevant achievements from your resume</span>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-                  <span className="text-muted-foreground">End with a clear call to action</span>
-                </div>
               </div>
-            </motion.div>
+              
+              {coverLetter ? (
+                <div className="space-y-4">
+                  {editMode ? (
+                    <div className="space-y-3">
+                      <textarea
+                        value={editedCoverLetter}
+                        onChange={(e) => setEditedCoverLetter(e.target.value)}
+                        className="w-full h-96 px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSaveEdit}
+                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Save className="w-4 h-4" />
+                          Save
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-muted/30 rounded-lg p-4 max-h-96 overflow-y-auto">
+                      <div className="text-sm text-foreground whitespace-pre-wrap">
+                        {formatCoverLetter()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Your cover letter will appear here</p>
+                  <p className="text-sm">Fill in the details and click generate</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

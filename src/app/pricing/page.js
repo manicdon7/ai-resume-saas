@@ -168,39 +168,45 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black">
       <Navbar user={user} onSignOut={handleSignOut} />
       <div className="container mx-auto px-4 py-12 sm:py-16">
         {/* Header */}
-        <div className="text-center mb-8 sm:mb-12">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 sm:mb-4 animate-fade-in">
-            Simple, Transparent Pricing
+        <div className="text-center mb-16">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mb-4">
+            Choose Your Plan
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground mb-6 sm:mb-8 max-w-2xl mx-auto animate-fade-in-delay">
-            Choose the perfect plan for your resume needs. Upgrade or downgrade at any time.
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            Unlock your career potential with our AI-powered resume tools
           </p>
-          
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-8 sm:mb-12">
-            <span className={`text-xs sm:text-sm font-medium ${billingCycle === 'monthly' ? 'text-foreground' : 'text-muted-foreground'}`}>
-              Monthly
-            </span>
-            <button
-              onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
-              className="relative inline-flex h-5 sm:h-6 w-10 sm:w-11 items-center rounded-full bg-primary transition-colors duration-200 hover:bg-primary/80"
-            >
-              <span
-                className={`inline-block h-3 sm:h-4 w-3 sm:w-4 transform rounded-full bg-background transition-transform duration-200 ${
-                  billingCycle === 'yearly' ? 'translate-x-5 sm:translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            <span className={`text-xs sm:text-sm font-medium ${billingCycle === 'yearly' ? 'text-foreground' : 'text-muted-foreground'}`}>
-              Yearly
-              <span className="ml-1 text-xs text-green-600 font-semibold">Save 20%</span>
-            </span>
-          </div>
         </div>
+
+          {/* Billing Toggle */}
+          <div className="flex items-center justify-center mb-8">
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              className={`px-4 py-2 rounded-l-lg transition-colors ${
+                billingCycle === 'monthly'
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                  : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('yearly')}
+              className={`px-4 py-2 rounded-r-lg transition-colors ${
+                billingCycle === 'yearly'
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                  : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
+              }`}
+            >
+              Yearly
+              <span className="ml-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full">
+                Save 20%
+              </span>
+            </button>
+          </div>
 
         {/* Error Display */}
         {error && (
@@ -238,58 +244,49 @@ export default function PricingPage() {
           {pricingPlans.map((plan, index) => (
             <div
               key={plan.name}
-              className={`relative group transition-all duration-300 transform ${
-                hoveredCard === index ? 'scale-105' : 'scale-100'
-              } ${
+              className={`relative rounded-2xl p-8 transition-all duration-300 backdrop-blur-sm ${
                 plan.popular
-                  ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-                  : 'border border-border'
-              } rounded-2xl bg-card p-4 sm:p-6 lg:p-8 hover:shadow-2xl w-full`}
+                  ? 'bg-gradient-to-br from-purple-900/20 to-blue-900/20 border-2 border-purple-500/50 shadow-xl scale-105'
+                  : 'bg-gray-800/50 border border-gray-700 hover:shadow-lg hover:shadow-purple-500/10'
+              }`}
               onMouseEnter={() => setHoveredCard(index)}
               onMouseLeave={() => setHoveredCard(null)}
             >
               {/* Popular Badge */}
               {plan.popular && (
-                <div className="absolute -top-8 mb-10 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" />
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1 shadow-lg">
+                    <Star className="w-4 h-4" />
                     Most Popular
                   </span>
                 </div>
               )}
-              
 
-              {/* Plan Header */}
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-foreground mb-2">{plan.name}</h3>
-                <p className="text-muted-foreground text-sm">{plan.description}</p>
-              </div>
-
-              {/* Price Display */}
-              <div className="text-center mb-6">
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
+                <p className="text-gray-300 mb-4">{plan.description}</p>
                 <div className="flex items-baseline justify-center">
-                  <span className="text-4xl font-bold text-foreground">
-                    ${billingCycle === 'yearly' ? plan.price.yearly : plan.price.monthly}
-                  </span>
-                  <span className="text-muted-foreground ml-1">/month</span>
+                  {plan.price.monthly === 0 ? (
+                    <span className="text-4xl font-bold text-white">Free</span>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                        ${billingCycle === 'yearly' ? plan.price.yearly : plan.price.monthly}
+                      </span>
+                      <span className="text-gray-400 ml-2">
+                        /{billingCycle === 'monthly' ? 'month' : 'year'}
+                      </span>
+                    </>
+                  )}
                 </div>
-                {billingCycle === 'yearly' && plan.price.yearly !== 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Billed ${(plan.price.yearly * 12).toFixed(2)} annually
-                  </p>
-                )}
               </div>
 
               {/* Features */}
               <ul className="space-y-3 mb-8">
                 {plan.features.map((feature, featureIndex) => (
-                  <li
-                    key={featureIndex}
-                    className="flex items-start gap-3 text-sm animate-fade-in"
-                    style={{ animationDelay: `${featureIndex * 50}ms` }}
-                  >
-                    <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    <span className="text-foreground">{feature}</span>
+                  <li key={featureIndex} className="flex items-start gap-3">
+                    <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-300">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -297,10 +294,10 @@ export default function PricingPage() {
               {/* Coming Soon Features */}
               {plan.comingSoon.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-xs text-muted-foreground mb-2">Coming Soon:</p>
+                  <p className="text-xs text-gray-400 mb-2">Coming Soon:</p>
                   <ul className="space-y-1">
                     {plan.comingSoon.map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <li key={idx} className="flex items-start gap-2 text-xs text-gray-400">
                         <Star className="w-3 h-3 mt-0.5 flex-shrink-0" />
                         {feature}
                       </li>
@@ -313,12 +310,13 @@ export default function PricingPage() {
               {plan.name === 'Free' ? (
                 <Link
                   href="/"
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 inline-block text-center ${
-                    plan.popular
-                      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                      : 'bg-accent text-accent-foreground hover:bg-accent/80 border border-border'
-                  } group-hover:shadow-lg transform group-hover:-translate-y-0.5`}
-                >
+                  className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+                  plan.popular
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-purple-500/25'
+                    : plan.name === 'Free'
+                    ? 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50 border border-gray-600'
+                    : 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-purple-500/25'
+                }`}>
                   <span className="flex items-center justify-center gap-2">
                     {plan.cta}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

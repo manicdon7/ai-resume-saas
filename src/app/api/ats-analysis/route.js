@@ -232,7 +232,7 @@ Be specific and actionable in recommendations.`;
                         type: 'improvement',
                         title: 'Analysis Processing',
                         description: 'Analysis completed with fallback data. Please try again for detailed insights.',
-                        icon: '⚡'
+                        icon: 'zap'
                     }
                 ],
                 recommendations: [

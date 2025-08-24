@@ -102,18 +102,18 @@ function AnalysisContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-foreground mb-4">Please sign in</h2>
-          <Link href="/" className="text-primary hover:underline">
+          <h2 className="text-2xl font-bold text-white mb-4">Please sign in</h2>
+          <Link href="/" className="text-purple-400 hover:text-purple-300 hover:underline transition-colors">
             Go to Home
           </Link>
         </div>
@@ -123,59 +123,59 @@ function AnalysisContent() {
 
   if (showForm || (!resumeContent || !jobDescription)) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black">
         <Navbar user={user} onSignOut={handleSignOut} />
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-primary to-accent rounded-full mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full mb-4 shadow-lg">
                 <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                  <div className="w-4 h-4 bg-primary rounded-full"></div>
+                  <div className="w-4 h-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full"></div>
                 </div>
               </div>
-              <h1 className="text-4xl font-bold text-foreground mb-4">ATS Optimization Analysis</h1>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mb-4">ATS Optimization Analysis</h1>
+              <p className="text-gray-300 max-w-2xl mx-auto">
                 Analyze your resume against Applicant Tracking Systems to improve your chances of getting hired.
               </p>
               {isPro && (
-                <div className="inline-block px-3 py-1 bg-gradient-to-r from-primary to-accent text-primary-foreground text-xs font-bold rounded-full mt-2">
+                <div className="inline-block px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-bold rounded-full mt-2 shadow-lg">
                   PRO ANALYSIS AVAILABLE
                 </div>
               )}
             </div>
 
             {/* Form */}
-            <div className="bg-card border border-border rounded-2xl p-8 shadow-lg">
+            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 shadow-lg backdrop-blur-sm">
               <form onSubmit={handleSubmitForm} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Resume Content <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Resume Content <span className="text-red-400">*</span>
                   </label>
                   <textarea
                     value={formResume}
                     onChange={(e) => setFormResume(e.target.value)}
-                    className="w-full h-48 px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground resize-vertical"
+                    className="w-full h-48 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
                     placeholder="Paste your resume content here..."
                     required
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-gray-400 mt-1">
                     Copy and paste the text content of your resume
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Job Description <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Job Description <span className="text-red-400">*</span>
                   </label>
                   <textarea
                     value={formJob}
                     onChange={(e) => setFormJob(e.target.value)}
-                    className="w-full h-48 px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground resize-vertical"
+                    className="w-full h-48 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
                     placeholder="Paste the job description here..."
                     required
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-gray-400 mt-1">
                     Copy and paste the job description you're applying for
                   </p>
                 </div>
@@ -184,13 +184,13 @@ function AnalysisContent() {
                   <button
                     type="submit"
                     disabled={!formResume.trim() || !formJob.trim()}
-                    className="px-8 py-3 bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-purple-500/25"
                   >
                     Analyze Resume
                   </button>
                   <Link
                     href="/"
-                    className="px-8 py-3 border border-border text-foreground rounded-lg hover:bg-muted/50 transition-colors font-medium text-center"
+                    className="px-8 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700/50 hover:border-purple-400/50 transition-colors font-medium text-center"
                   >
                     Cancel
                   </Link>
@@ -204,13 +204,13 @@ function AnalysisContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black">
       <Navbar user={user} onSignOut={handleSignOut} />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Header */}
           <div className="text-center space-y-4">
-            <Link href="/" className="mb-6 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/" className="mb-6 inline-flex items-center text-gray-400 hover:text-purple-400 transition-colors">
               <span className="mr-2">←</span> Back to Home
             </Link>
           </div>
@@ -233,7 +233,7 @@ function AnalysisContent() {
                 setFormJob(jobDescription);
                 setShowForm(true);
               }}
-              className="px-6 py-2 text-sm border border-border text-foreground rounded-lg hover:bg-muted/50 transition-colors"
+              className="px-6 py-2 text-sm border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700/50 hover:border-purple-400/50 transition-colors"
             >
               Edit Resume or Job Description
             </button>

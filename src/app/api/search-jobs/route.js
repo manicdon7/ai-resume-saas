@@ -89,7 +89,7 @@ export async function POST(request) {
       .map((url, index) => {
         // Extract metadata from URL and content
         let siteName = 'Job Board';
-        let siteIcon = '💼';
+        let siteIcon = 'briefcase';
         let jobTitle = extractedJobTitles[index] || 'Job Opportunity';
         let company = extractedCompanies[index] || 'Various Companies';
         let location = 'Remote';
@@ -98,7 +98,7 @@ export async function POST(request) {
         // Extract better metadata from URLs
         if (url.includes('linkedin.com/jobs')) {
           siteName = 'LinkedIn';
-          siteIcon = '💼';
+          siteIcon = 'linkedin';
           
           // Try to extract job title from LinkedIn URL
           const titleMatch = url.match(/\/jobs\/view\/([^\/\?]+)/);
@@ -114,7 +114,7 @@ export async function POST(request) {
           
         } else if (url.includes('indeed.com')) {
           siteName = 'Indeed';
-          siteIcon = '🎯';
+          siteIcon = 'target';
           
           // Extract job title from Indeed URL
           const titleMatch = url.match(/\/jobs\/([^\/\?]+)/);
@@ -124,7 +124,7 @@ export async function POST(request) {
           
         } else if (url.includes('glassdoor.com')) {
           siteName = 'Glassdoor';
-          siteIcon = '🏢';
+          siteIcon = 'building';
           
           // Extract job title from Glassdoor URL
           const titleMatch = url.match(/\/job\/([^\/\?]+)/);
@@ -134,7 +134,7 @@ export async function POST(request) {
           
         } else if (url.includes('monster.com')) {
           siteName = 'Monster';
-          siteIcon = '👹';
+          siteIcon = 'users';
           
           // Extract job title from Monster URL
           const titleMatch = url.match(/\/job\/([^\/\?]+)/);
@@ -144,7 +144,7 @@ export async function POST(request) {
           
         } else if (url.includes('ziprecruiter.com')) {
           siteName = 'ZipRecruiter';
-          siteIcon = '⚡';
+          siteIcon = 'zap';
           
           // Extract job title from ZipRecruiter URL
           const titleMatch = url.match(/\/job\/([^\/\?]+)/);
@@ -154,7 +154,7 @@ export async function POST(request) {
           
         } else if (url.includes('careers')) {
           siteName = 'Company Careers';
-          siteIcon = '🏢';
+          siteIcon = 'building';
           
           // Extract company name from careers URL
           try {

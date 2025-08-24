@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { CheckCircle, TrendingUp, AlertTriangle, X, RotateCcw, Star, Target, Square, Diamond } from 'lucide-react';
 import ATSSpeedometer from './ATSSpeedometer';
 import ATSProgressBar from './ATSProgressBar';
 
@@ -33,25 +34,25 @@ const ATSAnalysis = ({
           type: 'strength',
           title: 'Strong Technical Keywords',
           description: 'Your resume contains relevant technical keywords that match the job requirements.',
-          icon: '✓'
+          icon: 'CheckCircle'
         },
         {
           type: 'improvement',
           title: 'Add More Action Verbs',
           description: 'Consider using more dynamic action verbs like "implemented", "optimized", "designed".',
-          icon: '↗'
+          icon: 'TrendingUp'
         },
         {
           type: 'warning',
           title: 'Missing Key Skills',
           description: 'The job description mentions "cloud architecture" which is not prominently featured.',
-          icon: '!'
+          icon: 'AlertTriangle'
         },
         {
           type: 'strength',
           title: 'Excellent ATS Format',
           description: 'Your resume format is highly compatible with ATS systems.',
-          icon: '✓'
+          icon: 'CheckCircle'
         }
       ],
       
@@ -103,10 +104,10 @@ const ATSAnalysis = ({
 
   const getInsightIcon = (type) => {
     switch (type) {
-      case 'strength': return '✓';
-      case 'improvement': return '↗';
-      case 'warning': return '!';
-      default: return '•';
+      case 'strength': return CheckCircle;
+      case 'improvement': return TrendingUp;
+      case 'warning': return AlertTriangle;
+      default: return Target;
     }
   };
 
@@ -147,7 +148,7 @@ const ATSAnalysis = ({
     return (
       <div className={`bg-card border border-border rounded-2xl p-8 shadow-lg ${className}`}>
         <div className="text-center space-y-4">
-          <div className="text-4xl text-red-500 font-bold">✗</div>
+          <X className="w-16 h-16 text-red-500 mx-auto" />
           <div>
             <h3 className="text-xl font-bold text-foreground mb-2">Analysis Failed</h3>
             <p className="text-muted-foreground mb-4">{error}</p>
@@ -188,7 +189,7 @@ const ATSAnalysis = ({
           label="Overall ATS Score"
           score={analysisData.overallScore}
           color="auto"
-          icon="★"
+          icon={Star}
           size="large"
           description="Your resume&apos;s overall optimization score"
         />
@@ -200,28 +201,28 @@ const ATSAnalysis = ({
           label="ATS Compatibility"
           score={analysisData.atsCompatibility}
           color="auto"
-          icon="◉"
+          icon={Target}
           description="Format & structure compatibility"
         />
         <ATSSpeedometer
           label="Keyword Match"
           score={analysisData.keywordMatch}
           color="auto"
-          icon="♦"
+          icon={Diamond}
           description="Job-relevant keywords found"
         />
         <ATSSpeedometer
           label="Formatting"
           score={analysisData.formatting}
           color="auto"
-          icon="▢"
+          icon={Square}
           description="Clean, readable format"
         />
         <ATSSpeedometer
           label="Readability"
           score={analysisData.readability}
           color="auto"
-          icon="◈"
+          icon={Diamond}
           description="Content clarity & flow"
         />
       </div>
@@ -232,13 +233,13 @@ const ATSAnalysis = ({
         <ATSProgressBar
           label="Section Optimization"
           score={analysisData.sectionsOptimization}
-          icon="◎"
+          icon={Target}
           color="auto"
         />
         <ATSProgressBar
           label="Keyword Density"
           score={analysisData.keywordMatch}
-          icon="▨"
+          icon={Square}
           color="auto"
         />
       </div>
@@ -253,7 +254,10 @@ const ATSAnalysis = ({
               className={`p-4 rounded-xl border ${getInsightColors(insight.type)}`}
             >
               <div className="flex items-start space-x-3">
-                <span className="text-2xl">{insight.icon}</span>
+                {(() => {
+                  const IconComponent = getInsightIcon(insight.type);
+                  return <IconComponent className="w-6 h-6 mt-0.5" />;
+                })()}
                 <div className="space-y-1">
                   <h4 className="font-semibold text-foreground">{insight.title}</h4>
                   <p className="text-sm text-muted-foreground">{insight.description}</p>
@@ -271,7 +275,7 @@ const ATSAnalysis = ({
           {/* Matched Keywords */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-green-400 flex items-center gap-2">
-              <span>✓</span> Matched Keywords
+              <CheckCircle className="w-4 h-4" /> Matched Keywords
             </h4>
             <div className="flex flex-wrap gap-2">
               {analysisData.keywordAnalysis.matched.map((keyword, index) => (
@@ -288,7 +292,7 @@ const ATSAnalysis = ({
           {/* Missing Keywords */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-orange-400 flex items-center gap-2">
-              <span>!</span> Missing Keywords
+              <AlertTriangle className="w-4 h-4" /> Missing Keywords
             </h4>
             <div className="flex flex-wrap gap-2">
               {analysisData.keywordAnalysis.missing.map((keyword, index) => (
@@ -326,7 +330,8 @@ const ATSAnalysis = ({
           onClick={runAnalysis}
           className="px-8 py-3 bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium"
         >
-          ↻ Re-analyze Resume
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Re-analyze Resume
         </button>
       </div>
     </div>

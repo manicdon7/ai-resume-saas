@@ -3,8 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-hot-toast';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import Navbar from '@/components/Navbar';
@@ -66,11 +65,9 @@ function PaymentSuccessContent() {
         </svg>
       </div>
       
-      <h1 className="text-3xl font-bold text-foreground mb-4 animate-fade-in">Payment Successful!</h1>
+      <h1 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-4">Payment Successful!</h1>
       
-      <p className="text-muted-foreground mb-8 animate-fade-in-delay">
-        Thank you for upgrading to RoleFitAI Pro! You now have unlimited access to all our premium features.
-      </p>
+      <p className="text-gray-300 mb-6">Thank you for upgrading to RoleFitAI Pro! You now have unlimited access to all our premium features.</p>
       
       <div className="bg-muted/50 rounded-lg p-6 mb-8 border border-border/50 transform transition-all duration-300 hover:scale-105">
         <h2 className="text-xl font-semibold text-foreground mb-4">Pro Benefits</h2>
@@ -99,7 +96,7 @@ function PaymentSuccessContent() {
       <div className="flex gap-4 justify-center">
         <Link 
           href="/dashboard"
-          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 font-medium inline-block transform hover:scale-105 hover:shadow-lg"
+          className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium shadow-lg hover:shadow-purple-500/25"
         >
           Go to Dashboard
         </Link>
@@ -134,10 +131,10 @@ export default function PaymentSuccess() {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
       <Navbar user={user} onSignOut={handleSignOut} />
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-transparent to-accent/5 flex items-center justify-center p-4">
-        <div className="bg-background/80 backdrop-blur-md rounded-xl border border-border/30 shadow-lg p-8 max-w-md w-full text-center">
+        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 max-w-md mx-auto text-center shadow-lg backdrop-blur-sm">
           <Suspense fallback={
             <div className="py-8">
               <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto"></div>
@@ -148,6 +145,6 @@ export default function PaymentSuccess() {
           </Suspense>
         </div>
       </div>
-    </>
+    </div>
   );
 }

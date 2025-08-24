@@ -97,14 +97,14 @@ export async function POST(request) {
         // Check input length limits
         if (normalizedJobDesc.length > 10000) {
             return NextResponse.json(
-                { text: "⚠️ Job description is too long. Please limit to 10,000 characters." },
+                { text: "Warning: Job description is too long. Please limit to 10,000 characters." },
                 { status: 400 }
             );
         }
 
         if (normalizedResume && normalizedResume.length > 15000) {
             return NextResponse.json(
-                { text: "⚠️ Resume text is too long. Please limit to 15,000 characters." },
+                { text: "Warning: Resume text is too long. Please limit to 15,000 characters." },
                 { status: 400 }
             );
         }

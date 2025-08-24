@@ -1,7 +1,8 @@
 import { Inter, Poppins, JetBrains_Mono } from "next/font/google";
-import "./globals.css";
-import 'react-toastify/dist/ReactToastify.css';
+import { Toaster } from 'react-hot-toast';
+import "./globals.css"
 import Script from "next/script";
+import ReduxProvider from '../components/ReduxProvider';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -69,7 +70,6 @@ export default function RootLayout({ children }) {
       <head>
         {/* Security Headers */}
         <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
-        <meta httpEquiv="X-Frame-Options" content="DENY" />
         <meta httpEquiv="X-XSS-Protection" content="1; mode=block" />
         <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
         <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
@@ -88,7 +88,20 @@ export default function RootLayout({ children }) {
           crossOrigin="anonymous"></script>
       </head>
       <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}>
-        {children}
+        <ReduxProvider>
+          {children}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: 'hsl(var(--card))',
+                color: 'hsl(var(--card-foreground))',
+                border: '1px solid hsl(var(--border))',
+              },
+            }}
+          />
+        </ReduxProvider>
       </body>
     </html>
   );

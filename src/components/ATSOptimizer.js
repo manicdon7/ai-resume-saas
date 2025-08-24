@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { CheckCircle, TrendingUp, AlertTriangle, X, RotateCcw, Star, Target, Square, Diamond } from 'lucide-react';
 import ATSSpeedometer from './ATSSpeedometer';
 import ATSProgressBar from './ATSProgressBar';
 
@@ -129,7 +130,7 @@ const ATSOptimizer = ({
     return (
       <div className={`bg-card border border-border rounded-2xl p-8 shadow-lg ${className}`}>
         <div className="text-center space-y-4">
-          <div className="text-4xl text-red-500 font-bold">✗</div>
+          <X className="w-16 h-16 text-red-500 mx-auto" />
           <div>
             <h3 className="text-xl font-bold text-foreground mb-2">Analysis Failed</h3>
             <p className="text-muted-foreground mb-4">{error}</p>
@@ -176,7 +177,7 @@ const ATSOptimizer = ({
             label="Overall ATS Score"
             score={analysisData.overallScore}
             color="auto"
-            icon="★"
+            icon={Star}
             size="large"
             description="Your resume's overall optimization score"
           />
@@ -195,7 +196,7 @@ const ATSOptimizer = ({
             label="Keyword Match"
             score={analysisData.keywordMatch}
             color="auto"
-            icon="♦"
+            icon={Diamond}
             description="Job-relevant keywords found"
           />
           <ATSSpeedometer
@@ -285,7 +286,7 @@ const ATSOptimizer = ({
             {/* Matched Keywords */}
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-green-400 flex items-center gap-2">
-                <span>✓</span> Matched Keywords
+                <CheckCircle className="w-4 h-4" /> Matched Keywords
               </h4>
               <div className="flex flex-wrap gap-2">
                 {analysisData.keywordAnalysis?.matched?.slice(0, isPro ? analysisData.keywordAnalysis.matched.length : 3).map((keyword, index) => (

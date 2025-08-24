@@ -34,7 +34,7 @@ export async function POST(request) {
                     return NextResponse.json({
                         error: "Could not extract text from PDF. The PDF might be image-based or encrypted.",
                         text: "",
-                        suggestion: "💡 Try copying the text manually: Open PDF → Select All (Ctrl+A/Cmd+A) → Copy → Paste below"
+                        suggestion: "Try copying the text manually: Open PDF → Select All (Ctrl+A/Cmd+A) → Copy → Paste below"
                     });
                 }
             } catch (error) {
@@ -42,7 +42,7 @@ export async function POST(request) {
                 return NextResponse.json({
                     error: "Error processing PDF file. Please try copying the text manually.",
                     text: "",
-                    suggestion: "💡 Quick tip: Open your PDF → Select All (Ctrl+A/Cmd+A) → Copy (Ctrl+C/Cmd+C) → Paste below"
+                    suggestion: "Quick tip: Open your PDF → Select All (Ctrl+A/Cmd+A) → Copy (Ctrl+C/Cmd+C) → Paste below"
                 });
             }
         } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
