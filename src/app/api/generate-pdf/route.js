@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { CreditsService } from '../../../../lib/credits-service';
+import { CreditsService } from '../../../lib/credits-service';
 
 export async function POST(request) {
   try {

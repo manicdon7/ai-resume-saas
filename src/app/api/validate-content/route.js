@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { CreditsService } from '../../../../lib/credits-service';
+import { CreditsService } from '../../../lib/credits-service';
 
 export async function POST(request) {
   try {
