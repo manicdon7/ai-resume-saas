@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, User, FileText, Briefcase, Settings, LogOut, Home, BarChart3, Mail } from 'lucide-react';
 
-const Navbar = ({ user, onSignOut }) => {
+const Navbar = ({ user, onSignOut, onGetStarted }) => {
   const router = useRouter();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -115,12 +115,12 @@ const Navbar = ({ user, onSignOut }) => {
                 </div>
               ) : (
                 <div className="flex items-center space-x-4">
-                  <Link
-                    href="/auth"
+                  <button
+                    onClick={onGetStarted}
                     className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium shadow-lg hover:shadow-purple-500/25"
                   >
-                    Sign In
-                  </Link>
+                    Get Started
+                  </button>
                 </div>
               )}
             </div>
@@ -228,13 +228,15 @@ const Navbar = ({ user, onSignOut }) => {
                   </div>
                 ) : (
                   <div className="mt-auto pt-6 border-t border-gray-700 space-y-2">
-                    <Link
-                      href="/auth"
-                      onClick={() => setShowMobileMenu(false)}
+                    <button
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        onGetStarted();
+                      }}
                       className="block w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium text-center shadow-lg"
                     >
-                      Sign In
-                    </Link>
+                      Get Started
+                    </button>
                   </div>
                 )}
               </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector, useDispatch } from 'react-redux';
+import { motion, AnimatePresence } from 'framer-motion';
 import { auth } from '../../../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { setRecommendedJobs, setSavedJobs, setAppliedJobs, setLoading } from '@/store/slices/jobsSlice';
@@ -273,33 +274,79 @@ export default function JobsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black">
-      <Navbar user={user} onSignOut={handleSignOut} />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header with Resume Status */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-8">
-            <button
-              onClick={() => router.back()}
-              className="p-3 hover:bg-gray-700/50 rounded-xl transition-all duration-200 shadow-sm border border-gray-600"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-400" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">Job Recommendations</h1>
-              <p className="text-gray-300 text-lg mt-1">AI-powered job matches tailored to your profile</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-blue-900/10 to-black" />
+        {/* Floating Orbs */}
+        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-float-delayed" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" />
+      </div>
 
-          {/* Resume Status Card */}
-          {resumeText && (
-            <div className="bg-gradient-to-br from-emerald-900/20 to-blue-900/20 border border-emerald-700/50 rounded-2xl p-6 shadow-lg backdrop-blur-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
-                    <CheckCircle className="w-7 h-7 text-white" />
-                  </div>
+      <div className="relative z-10">
+        <Navbar user={user} onSignOut={handleSignOut} />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header with Resume Status */}
+          <motion.div 
+            className="mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <motion.div 
+              className="flex items-center gap-4 mb-8"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <motion.button
+                onClick={() => router.back()}
+                className="p-3 hover:bg-gray-700/50 rounded-xl transition-all duration-200 shadow-sm border border-gray-600"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-400" />
+              </motion.button>
+              <div className="flex-1">
+                <motion.h1 
+                  className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent animate-gradient-shine"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                  Job Recommendations
+                </motion.h1>
+                <motion.p 
+                  className="text-gray-300 text-lg mt-1"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.6 }}
+                >
+                  AI-powered job matches tailored to your profile
+                </motion.p>
+              </div>
+            </motion.div>
+
+            {/* Resume Status Card */}
+            {resumeText && (
+              <motion.div 
+                className="bg-gradient-to-br from-emerald-900/20 to-blue-900/20 border border-emerald-700/50 rounded-2xl p-6 shadow-lg backdrop-blur-sm"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.8 }}
+                whileHover={{ scale: 1.01 }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <motion.div 
+                      className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.6 }}
+                    >
+                      <CheckCircle className="w-7 h-7 text-white" />
+                    </motion.div>
                   <div>
                     <h3 className="text-xl font-bold text-white">Resume Active</h3>
                     <p className="text-gray-300">
@@ -335,11 +382,11 @@ export default function JobsPage() {
                   >
                     {loading ? 'Refreshing...' : 'Refresh Jobs'}
                   </button>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
+              </motion.div>
+            )}
+          </motion.div>
 
         {!resumeText ? (
           <div className="text-center py-16">
@@ -532,6 +579,7 @@ export default function JobsPage() {
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );

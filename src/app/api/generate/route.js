@@ -1,62 +1,18 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '../../../../lib/mongodb';
-import jwt from 'jsonwebtoken';
+import { CreditsService } from '../../../../lib/credits-service';
 
 export async function POST(request) {
     try {
         // --- Credit System Start ---
-        // Get token from headers (Authorization: Bearer ...)
         const authHeader = request.headers.get('authorization');
-        let userId = null;
-        let isPro = false;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.replace('Bearer ', '');
-            try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                userId = decoded.userId;
-            } catch (e) {
-                // Invalid token
-                return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
-            }
+        const creditResult = await CreditsService.middleware(request);
+        
+        if (creditResult.response) {
+            return creditResult.response;
         }
-        if (!userId) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        }
-        // Connect to DB and fetch user
-        const client = await clientPromise;
-        const db = client.db('roleFitAi');
-        const users = db.collection('users');
-        const user = await users.findOne({ _id: typeof userId === 'string' ? new (await import('mongodb')).ObjectId(userId) : userId });
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 401 });
-        }
-        isPro = user.isPro || user.pro === true;
-        // Daily credit logic
-        const DAILY_CREDITS = 3;
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        let credits = user.credits ?? DAILY_CREDITS;
-        let lastCreditReset = user.lastCreditReset ? new Date(user.lastCreditReset) : null;
-        if (!lastCreditReset || lastCreditReset < today) {
-            credits = DAILY_CREDITS;
-            await users.updateOne(
-                { _id: user._id },
-                { $set: { credits, lastCreditReset: now } }
-            );
-        }
-        if (!isPro) {
-            if (credits <= 0) {
-                return NextResponse.json(
-                    { error: 'Daily limit reached. Upgrade to Pro for unlimited access.', credits: 0, isPro: false },
-                    { status: 429 }
-                );
-            }
-            // Decrement credit
-            await users.updateOne(
-                { _id: user._id },
-                { $inc: { credits: -1 } }
-            );
-        }
+        
+        const user = creditResult.user;
+        const isPro = creditResult.isPro;
         // --- Credit System End ---
 
         // Add timeout for request parsing

@@ -193,8 +193,7 @@
 
   .input-field:focus {
     outline: none;
-    ring: 2px;
-    ring-color: var(--ring);
+    box-shadow: 0 0 0 2px var(--ring);
     border-color: var(--primary);
   }
 
@@ -273,6 +272,20 @@
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
+  }
+
+  /* Gradient Shine Animation */
+  @keyframes gradient-shine {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Float Animation */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33% { transform: translateY(-10px) rotate(1deg); }
+    66% { transform: translateY(5px) rotate(-1deg); }
   }
 
   /* Custom Scrollbar for Dark Theme */

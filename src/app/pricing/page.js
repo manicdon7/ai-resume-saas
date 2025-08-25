@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ArrowRight, Sparkles, Star } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -168,45 +169,79 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black">
-      <Navbar user={user} onSignOut={handleSignOut} />
-      <div className="container mx-auto px-4 py-12 sm:py-16">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mb-4">
-            Choose Your Plan
-          </h1>
-          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            Unlock your career potential with our AI-powered resume tools
-          </p>
-        </div>
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-blue-900/10 to-black" />
+        {/* Floating Orbs */}
+        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-float-delayed" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" />
+      </div>
+
+      <div className="relative z-10">
+        <Navbar user={user} onSignOut={handleSignOut} />
+        <div className="container mx-auto px-4 py-12 sm:py-16">
+          {/* Header */}
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <motion.h1 
+              className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mb-4 animate-gradient-shine"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              Choose Your Plan
+            </motion.h1>
+            <motion.p 
+              className="text-xl text-gray-300 max-w-2xl mx-auto"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              Unlock your career potential with our AI-powered resume tools
+            </motion.p>
+          </motion.div>
 
           {/* Billing Toggle */}
-          <div className="flex items-center justify-center mb-8">
-            <button
+          <motion.div 
+            className="flex items-center justify-center mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            <motion.button
               onClick={() => setBillingCycle('monthly')}
               className={`px-4 py-2 rounded-l-lg transition-colors ${
                 billingCycle === 'monthly'
                   ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
                   : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
               }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               Monthly
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={() => setBillingCycle('yearly')}
               className={`px-4 py-2 rounded-r-lg transition-colors ${
                 billingCycle === 'yearly'
                   ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
                   : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
               }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               Yearly
               <span className="ml-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full">
                 Save 20%
               </span>
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
 
         {/* Error Display */}
         {error && (
@@ -238,20 +273,34 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* Pricing Cards */}
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto px-2 sm:px-4">
-          {pricingPlans.map((plan, index) => (
-            <div
-              key={plan.name}
-              className={`relative rounded-2xl p-8 transition-all duration-300 backdrop-blur-sm ${
-                plan.popular
-                  ? 'bg-gradient-to-br from-purple-900/20 to-blue-900/20 border-2 border-purple-500/50 shadow-xl scale-105'
-                  : 'bg-gray-800/50 border border-gray-700 hover:shadow-lg hover:shadow-purple-500/10'
-              }`}
-              onMouseEnter={() => setHoveredCard(index)}
-              onMouseLeave={() => setHoveredCard(null)}
-            >
+          {/* Pricing Cards */}
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto px-2 sm:px-4"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.8 }}
+          >
+            {pricingPlans.map((plan, index) => (
+              <motion.div
+                key={plan.name}
+                className={`relative rounded-2xl p-8 transition-all duration-300 backdrop-blur-sm ${
+                  plan.popular
+                    ? 'bg-gradient-to-br from-purple-900/20 to-blue-900/20 border-2 border-purple-500/50 shadow-xl scale-105'
+                    : 'bg-gray-800/50 border border-gray-700 hover:shadow-lg hover:shadow-purple-500/10'
+                }`}
+                initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: plan.popular ? 1.05 : 1 }}
+                transition={{ duration: 0.6, delay: 1.0 + index * 0.2 }}
+                whileHover={{ 
+                  scale: plan.popular ? 1.08 : 1.03, 
+                  y: -10,
+                  boxShadow: plan.popular 
+                    ? "0 25px 50px -12px rgba(147, 51, 234, 0.25)" 
+                    : "0 25px 50px -12px rgba(0, 0, 0, 0.25)"
+                }}
+                onMouseEnter={() => setHoveredCard(index)}
+                onMouseLeave={() => setHoveredCard(null)}
+              >
               {/* Popular Badge */}
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
@@ -385,9 +434,9 @@ export default function PricingPage() {
                   </span>
                 </button>
               )}
-            </div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </motion.div>
 
         {/* Comparison Section */}
         <div className="mt-12 sm:mt-16 max-w-4xl mx-auto px-4">
@@ -492,6 +541,7 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
+    </div>
 
       <style jsx>{`
         @keyframes fade-in {

@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { CreditsService } from '../../../../lib/credits-service';
 
 export async function POST(request) {
   try {
+    // --- Credit System Start ---
+    const creditResult = await CreditsService.middleware(request);
+    
+    if (creditResult.response) {
+      return creditResult.response;
+    }
+    
+    const { user, isPro } = creditResult;
+    // --- Credit System End ---
     const body = await request.json();
     const resumeContent = body.content;
     const jobDescription = body.jobDescription;

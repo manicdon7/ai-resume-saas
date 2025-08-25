@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
+import { CreditsService } from '../../../../lib/credits-service';
 
 export async function POST(request) {
   try {
+    // --- Credit System Start ---
+    const creditResult = await CreditsService.middleware(request);
+    
+    if (creditResult.response) {
+      return creditResult.response;
+    }
+    
+    const { user, isPro } = creditResult;
+    // --- Credit System End ---
     const { text, type } = await request.json();
 
     if (!text || !type) {
