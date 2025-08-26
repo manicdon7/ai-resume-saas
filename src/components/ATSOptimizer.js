@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, TrendingUp, AlertTriangle, X, RotateCcw, Star, Target, Square, Diamond } from 'lucide-react';
+import { auth } from '../../lib/firebase';
 import ATSSpeedometer from './ATSSpeedometer';
 import ATSProgressBar from './ATSProgressBar';
 
@@ -23,7 +24,13 @@ const ATSOptimizer = ({
     setError(null);
     
     try {
-      const token = localStorage.getItem('token');
+      // Get Firebase auth token
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Please sign in to perform analysis');
+      }
+      
+      const token = await currentUser.getIdToken();
       const response = await fetch('/api/ats-analysis', {
         method: 'POST',
         headers: {
@@ -412,14 +419,14 @@ const ATSOptimizer = ({
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <button
             onClick={performATSAnalysis}
-            className="px-8 py-3 bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium"
+            className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
           >
             ↻ Re-analyze Resume
           </button>
           {!isPro && (
             <button
               onClick={() => setShowUpgradeModal(true)}
-              className="px-8 py-3 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors font-medium"
+              className="px-8 py-3 border border-purple-600 text-purple-600 rounded-lg hover:bg-purple-600/10 transition-colors font-medium"
             >
               Upgrade to Pro
             </button>
@@ -427,7 +434,28 @@ const ATSOptimizer = ({
         </div>
       </div>
       
-      {showUpgradeModal && <UpgradeModal />}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-xl max-w-md mx-4">
+            <h3 className="text-xl font-bold text-white mb-4">Upgrade to Pro</h3>
+            <p className="text-gray-300 mb-6">Get unlimited ATS analysis and advanced features with Pro.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => window.open('/pricing', '_blank')}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Upgrade
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
