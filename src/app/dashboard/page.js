@@ -8,14 +8,14 @@ import { auth } from '../../../lib/firebase';
 import { setUser, setProStatus, setCredits, signOut as reduxSignOut } from '../../store/slices/authSlice';
 import { setParsedData, setResumeText, clearResume } from '../../store/slices/resumeSlice';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FileText, 
-  Upload, 
-  BarChart3, 
-  Target, 
-  Briefcase, 
-  Clock, 
-  CheckCircle, 
+import {
+  FileText,
+  Upload,
+  BarChart3,
+  Target,
+  Briefcase,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   Crown,
   Zap,
@@ -53,10 +53,10 @@ export default function DashboardPage() {
   const fetchUserData = async (currentUser) => {
     try {
       const token = await currentUser.getIdToken();
-      
+
       // Set default credits for now since API endpoints don't exist
       dispatch(setCredits(100));
-      
+
       // Mock activity data
       setRecentActivity([
         { type: 'resume_upload', date: new Date().toISOString(), description: 'Resume uploaded' },
@@ -251,13 +251,13 @@ export default function DashboardPage() {
         <Navbar user={user} onSignOut={handleSignOut} />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
-          <motion.div 
+          <motion.div
             className="mb-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <motion.h1 
+            <motion.h1
               className="text-4xl font-bold mb-4"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -267,7 +267,7 @@ export default function DashboardPage() {
                 Dashboard
               </span>
             </motion.h1>
-            <motion.p 
+            <motion.p
               className="text-gray-300 text-lg"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -276,14 +276,14 @@ export default function DashboardPage() {
               Manage your resume and track your job applications
             </motion.p>
           </motion.div>
-          <motion.div 
+          <motion.div
             className="flex items-center justify-between mb-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.6 }}
           >
             <div>
-              <motion.h1 
+              <motion.h1
                 className="text-3xl font-bold text-white mb-2"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -291,7 +291,7 @@ export default function DashboardPage() {
               >
                 Welcome back, {parsedData?.name || user?.displayName || 'Professional'}!
               </motion.h1>
-              <motion.p 
+              <motion.p
                 className="text-gray-400"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -301,7 +301,7 @@ export default function DashboardPage() {
               </motion.p>
             </div>
             {isPro && (
-              <motion.div 
+              <motion.div
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-white rounded-lg shadow-lg"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -315,13 +315,13 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Stats Grid */}
-          <motion.div 
+          <motion.div
             className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <motion.div 
+            <motion.div
               className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 group"
               whileHover={{ scale: 1.02, y: -5 }}
               initial={{ opacity: 0, y: 20 }}
@@ -333,7 +333,7 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium text-gray-400">Credits Remaining</p>
                   <p className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">{credits}</p>
                 </div>
-                <motion.div 
+                <motion.div
                   className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg"
                   whileHover={{ rotate: 360 }}
                   transition={{ duration: 0.6 }}
@@ -343,7 +343,7 @@ export default function DashboardPage() {
               </div>
             </motion.div>
 
-            <motion.div 
+            <motion.div
               className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm hover:shadow-2xl hover:shadow-green-500/10 transition-all duration-300 group"
               whileHover={{ scale: 1.02, y: -5 }}
               initial={{ opacity: 0, y: 20 }}
@@ -355,7 +355,7 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium text-gray-400">Resumes Created</p>
                   <p className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">3</p>
                 </div>
-                <motion.div 
+                <motion.div
                   className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg"
                   whileHover={{ rotate: 360 }}
                   transition={{ duration: 0.6 }}
@@ -365,7 +365,7 @@ export default function DashboardPage() {
               </div>
             </motion.div>
 
-            <motion.div 
+            <motion.div
               className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 group"
               whileHover={{ scale: 1.02, y: -5 }}
               initial={{ opacity: 0, y: 20 }}
@@ -377,7 +377,7 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium text-gray-400">Applications Sent</p>
                   <p className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">12</p>
                 </div>
-                <motion.div 
+                <motion.div
                   className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg"
                   whileHover={{ rotate: 360 }}
                   transition={{ duration: 0.6 }}
@@ -389,7 +389,7 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Main Content Grid */}
-          <motion.div 
+          <motion.div
             className="grid grid-cols-1 lg:grid-cols-3 gap-8"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -398,14 +398,14 @@ export default function DashboardPage() {
             {/* Resume Upload & Info */}
             <div className="lg:col-span-2 space-y-6">
               {/* Resume Upload Section */}
-              <motion.div 
+              <motion.div
                 className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 backdrop-blur-sm"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
                 whileHover={{ scale: 1.01 }}
               >
-                <motion.h2 
+                <motion.h2
                   className="text-2xl font-bold mb-6 flex items-center gap-3"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -416,114 +416,114 @@ export default function DashboardPage() {
                     Resume Management
                   </span>
                 </motion.h2>
-              {!resumeText ? (
-                <div className="border-2 border-dashed border-gray-600 rounded-xl p-10 text-center hover:border-purple-500/50 transition-all duration-300 bg-gray-900/30">
-                  <input
-                    type="file"
-                    id="resume-upload"
-                    accept=".pdf,.doc,.docx,.txt"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={uploading}
-                  />
-                  <label htmlFor="resume-upload" className="cursor-pointer">
-                    {uploading ? (
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                        <p className="text-sm text-muted-foreground">Processing {fileName}...</p>
+                {!resumeText ? (
+                  <div className="border-2 border-dashed border-gray-600 rounded-xl p-10 text-center hover:border-purple-500/50 transition-all duration-300 bg-gray-900/30">
+                    <input
+                      type="file"
+                      id="resume-upload"
+                      accept=".pdf,.doc,.docx,.txt"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      disabled={uploading}
+                    />
+                    <label htmlFor="resume-upload" className="cursor-pointer">
+                      {uploading ? (
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                          <p className="text-sm text-muted-foreground">Processing {fileName}...</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-4">
+                          <Upload className="w-16 h-16 text-gray-400 mx-auto mb-6" />
+                          <h3 className="text-xl font-semibold text-white mb-3">
+                            {resumeText ? 'Update Your Resume' : 'Upload Your Resume'}
+                          </h3>
+                          <p className="text-gray-300 mb-6">
+                            {resumeText
+                              ? 'Replace your current resume with a new version'
+                              : 'Upload your resume in PDF, DOC, or DOCX format'}
+                          </p>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <div>
+                          <p className="font-medium text-foreground">Resume Uploaded</p>
+                          <p className="text-sm text-muted-foreground">
+                            {uploadedAt ? new Date(uploadedAt).toLocaleDateString() : 'Recently'}
+                          </p>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-4">
-                        <Upload className="w-16 h-16 text-gray-400 mx-auto mb-6" />
-                        <h3 className="text-xl font-semibold text-white mb-3">
-                          {resumeText ? 'Update Your Resume' : 'Upload Your Resume'}
-                        </h3>
-                        <p className="text-gray-300 mb-6">
-                          {resumeText
-                            ? 'Replace your current resume with a new version'
-                            : 'Upload your resume in PDF, DOC, or DOCX format'}
-                        </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            dispatch(clearResume());
+                            setFileName('');
+                            toast.success('Resume removed successfully');
+                          }}
+                          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Remove
+                        </button>
+                        <button
+                          onClick={() => document.getElementById('resume-upload').click()}
+                          className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors flex items-center gap-2"
+                        >
+                          <Upload className="w-4 h-4" />
+                          Update
+                        </button>
+                        <Link
+                          href="/analysis"
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          Analyze
+                        </Link>
+                      </div>
+                    </div>
+
+                    {/* Personal Info */}
+                    {parsedData && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-muted/20 rounded-lg">
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Name</p>
+                          <p className="text-foreground">{parsedData.name || 'Not extracted'}</p>
+                        </div>
+                        <div className="p-4 bg-muted/20 rounded-lg">
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Email</p>
+                          <p className="text-foreground">{parsedData.email || 'Not extracted'}</p>
+                        </div>
+                        <div className="p-4 bg-muted/20 rounded-lg">
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Phone</p>
+                          <p className="text-foreground">{parsedData.phone || 'Not extracted'}</p>
+                        </div>
+                        <div className="p-4 bg-muted/20 rounded-lg">
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Skills</p>
+                          <p className="text-foreground">
+                            {parsedData.skills?.length ? parsedData.skills.join(', ') : 'Not extracted'}
+                          </p>
+                        </div>
                       </div>
                     )}
-                  </label>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      <div>
-                        <p className="font-medium text-foreground">Resume Uploaded</p>
-                        <p className="text-sm text-muted-foreground">
-                          {uploadedAt ? new Date(uploadedAt).toLocaleDateString() : 'Recently'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          dispatch(clearResume());
-                          setFileName('');
-                          toast.success('Resume removed successfully');
-                        }}
-                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Remove
-                      </button>
-                      <button
-                        onClick={() => document.getElementById('resume-upload').click()}
-                        className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors flex items-center gap-2"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Update
-                      </button>
-                      <Link
-                        href="/analysis"
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
-                      >
-                        <BarChart3 className="w-4 h-4" />
-                        Analyze
-                      </Link>
-                    </div>
                   </div>
-
-                  {/* Personal Info */}
-                  {parsedData && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-muted/20 rounded-lg">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Name</p>
-                        <p className="text-foreground">{parsedData.name || 'Not extracted'}</p>
-                      </div>
-                      <div className="p-4 bg-muted/20 rounded-lg">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Email</p>
-                        <p className="text-foreground">{parsedData.email || 'Not extracted'}</p>
-                      </div>
-                      <div className="p-4 bg-muted/20 rounded-lg">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Phone</p>
-                        <p className="text-foreground">{parsedData.phone || 'Not extracted'}</p>
-                      </div>
-                      <div className="p-4 bg-muted/20 rounded-lg">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Skills</p>
-                        <p className="text-foreground">
-                          {parsedData.skills?.length ? parsedData.skills.join(', ') : 'Not extracted'}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
               </motion.div>
 
               {/* Quick Actions */}
-              <motion.div 
+              <motion.div
                 className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, delay: 1.2 }}
                 whileHover={{ scale: 1.01 }}
               >
-                <motion.h2 
+                <motion.h2
                   className="text-xl font-semibold text-white mb-4 flex items-center gap-2"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -581,14 +581,14 @@ export default function DashboardPage() {
             {/* Sidebar */}
             <div className="space-y-6">
               {/* Account Status */}
-              <motion.div 
+              <motion.div
                 className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, delay: 1.0 }}
                 whileHover={{ scale: 1.01 }}
               >
-                <motion.h3 
+                <motion.h3
                   className="text-lg font-semibold text-white mb-4 flex items-center gap-2"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -602,9 +602,8 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-400">Plan</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      isPro ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-600/50 text-gray-300'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${isPro ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-600/50 text-gray-300'
+                      }`}>
                       {isPro ? 'PRO' : 'FREE'}
                     </span>
                   </div>
@@ -629,14 +628,14 @@ export default function DashboardPage() {
               </motion.div>
 
               {/* Recent Activity */}
-              <motion.div 
+              <motion.div
                 className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, delay: 1.4 }}
                 whileHover={{ scale: 1.01 }}
               >
-                <motion.h3 
+                <motion.h3
                   className="text-lg font-semibold text-white mb-4 flex items-center gap-2"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -650,8 +649,8 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   {recentActivity.length > 0 ? (
                     recentActivity.slice(0, 5).map((activity, index) => (
-                      <motion.div 
-                        key={index} 
+                      <motion.div
+                        key={index}
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-700/30 transition-colors"
                         initial={{ opacity: 0, x: 10 }}
                         animate={{ opacity: 1, x: 0 }}
