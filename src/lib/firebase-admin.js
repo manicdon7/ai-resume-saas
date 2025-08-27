@@ -6,62 +6,61 @@ let auth;
 
 try {
   if (!admin.apps.length) {
-    // Use the service account JSON file directly
-    const serviceAccountPath = path.join(process.cwd(), 'rolefit-ai-cca18-firebase-adminsdk-fbsvc-6ddd270b08.json');
-    
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccountPath),
-      projectId: 'rolefit-ai-cca18'
+    // Debug environment variables
+    console.log('Firebase env check:', {
+      hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
+      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+      projectId: process.env.FIREBASE_PROJECT_ID
     });
-  }
-  
-  auth = admin.auth();
-  
-  console.log('Firebase Admin initialized successfully with service account');
-} catch (error) {
-  console.error('Failed to initialize Firebase Admin:', error);
-  
-  // Fallback to environment variables if service account file fails
-  try {
+
+    // Use environment variables for Firebase Admin SDK
     if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
-      if (!admin.apps.length) {
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-          }),
-        });
-      }
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
+      });
+      
       auth = admin.auth();
       console.log('Firebase Admin initialized with environment variables');
     } else {
-      throw new Error('No Firebase credentials available');
+      console.warn('Missing Firebase environment variables:', {
+        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || 'missing',
+        FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || 'missing',
+        FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY ? 'present' : 'missing'
+      });
+      throw new Error('Firebase environment variables not found');
     }
-  } catch (envError) {
-    console.warn('Using mock Firebase Admin for development');
-    
-    // Mock implementation for development
-    auth = {
-      verifyIdToken: async (token) => {
-        return { uid: 'dev-user-id', email: 'dev@example.com' };
-      },
-      createUser: async (userData) => {
-        return { uid: 'dev-user-id', ...userData };
-      },
-      updateUser: async (uid, userData) => {
-        return { uid, ...userData };
-      },
-      deleteUser: async (uid) => {
-        return { uid };
-      },
-      listUsers: async () => {
-        return { users: [] };
-      }
-    };
-    
-    // No Firestore mock needed - using MongoDB only
+  } else {
+    auth = admin.auth();
   }
+} catch (error) {
+  console.error('Failed to initialize Firebase Admin:', error);
+  console.warn('Using mock Firebase Admin for development');
+  
+  // Mock implementation for development
+  auth = {
+    verifyIdToken: async (token) => {
+      return { uid: 'dev-user-id', email: 'dev@example.com' };
+    },
+    createUser: async (userData) => {
+      return { uid: 'dev-user-id', ...userData };
+    },
+    updateUser: async (uid, userData) => {
+      return { uid, ...userData };
+    },
+    deleteUser: async (uid) => {
+      return { uid };
+    },
+    listUsers: async () => {
+      return { users: [] };
+    }
+  };
+  
+  // No Firestore mock needed - using MongoDB only
 }
 
 // Utility function to verify ID tokens
