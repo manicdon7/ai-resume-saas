@@ -43,8 +43,6 @@ export default function CoverLetterPage() {
   // Enhanced resume functionality states
   const [enhancedResume, setEnhancedResume] = useState('');
   const [enhancing, setEnhancing] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [fileName, setFileName] = useState('');
   
   const [generating, setGenerating] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
@@ -119,90 +117,7 @@ export default function CoverLetterPage() {
     }
   };
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
 
-    setUploading(true);
-    setFileName(file.name);
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch('/api/extract-text', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (data.text) {
-        dispatch(setResumeText(data.text));
-        await parseResumeData(data.text);
-        toast.success(`Successfully uploaded ${file.name}`);
-      } else {
-        toast.error('Failed to extract text from file');
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Error uploading file');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const parseResumeData = async (text) => {
-    try {
-      const response = await fetch('https://text.pollinations.ai/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Extract contact information from this resume and return as JSON: name, email, phone, location. Resume text: ${text.substring(0, 1000)}`
-          }],
-          model: 'openai',
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.text();
-        try {
-          const parsed = JSON.parse(result);
-          dispatch(setParsedData(parsed));
-        } catch (e) {
-          // Fallback parsing
-          const basicData = {
-            name: extractName(text),
-            email: extractEmail(text),
-            phone: extractPhone(text),
-            location: ''
-          };
-          dispatch(setParsedData(basicData));
-        }
-      }
-    } catch (error) {
-      console.error('Parse error:', error);
-    }
-  };
-
-  const extractName = (text) => {
-    const lines = text.split('\n');
-    return lines[0]?.trim() || 'Professional Candidate';
-  };
-
-  const extractEmail = (text) => {
-    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-    const match = text.match(emailRegex);
-    return match ? match[0] : '';
-  };
-
-  const extractPhone = (text) => {
-    const phoneRegex = /\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}/;
-    const match = text.match(phoneRegex);
-    return match ? match[0] : '';
-  };
 
   // Enhanced resume generation
   const handleEnhanceResume = async () => {
@@ -250,7 +165,7 @@ export default function CoverLetterPage() {
   // Cover letter generation
   const handleGenerateCoverLetter = async () => {
     if (!resumeText && !enhancedResume) {
-      toast.error('Please upload and enhance your resume first');
+      toast.error('Please upload your resume in the Dashboard first');
       return;
     }
     if (!companyName || !position) {
@@ -488,7 +403,7 @@ export default function CoverLetterPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.8 }}
             >
-              {/* Resume Upload */}
+              {/* Resume Status */}
               <motion.div 
                 className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 shadow-lg backdrop-blur-sm"
                 whileHover={{ scale: 1.01, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" }}
@@ -501,41 +416,40 @@ export default function CoverLetterPage() {
                   >
                     <FileText className="w-5 h-5 text-purple-400" />
                   </motion.div>
-                  Resume Upload
+                  Resume Status
                 </h2>
               
               {!resumeText ? (
-                <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-purple-400/50 transition-colors">
-                  <input
-                    type="file"
-                    id="resume-upload"
-                    accept=".pdf,.doc,.docx,.txt"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={uploading}
-                  />
-                  <label htmlFor="resume-upload" className="cursor-pointer">
-                    {uploading ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-                        <p className="text-sm text-gray-400">Processing {fileName}...</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-3">
-                        <Upload className="w-8 h-8 text-purple-400" />
-                        <div>
-                          <p className="font-medium text-white">Upload Resume</p>
-                          <p className="text-sm text-gray-400">PDF, DOC, DOCX, TXT</p>
-                        </div>
-                      </div>
-                    )}
-                  </label>
+                <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <Upload className="w-8 h-8 text-gray-400" />
+                    <div>
+                      <p className="font-medium text-gray-300">No Resume Found</p>
+                      <p className="text-sm text-gray-400 mb-3">Please upload your resume in the Dashboard first</p>
+                      <motion.button
+                        onClick={() => router.push('/dashboard')}
+                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 flex items-center gap-2 text-sm"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Upload className="w-4 h-4" />
+                        Go to Dashboard
+                      </motion.button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 p-3 bg-green-900/20 border border-green-700/50 rounded-lg">
                     <CheckCircle className="w-5 h-5 text-green-400" />
-                    <span className="text-sm font-medium text-green-300">Resume uploaded</span>
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-green-300">Resume loaded from Dashboard</span>
+                      {parsedData?.name && (
+                        <p className="text-xs text-green-400 mt-1">
+                          Resume for: {parsedData.name}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Resume Enhancement Section */}
@@ -710,6 +624,7 @@ export default function CoverLetterPage() {
                 className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-purple-500/25"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
+                title={!resumeText && !enhancedResume ? "Please upload your resume in the Dashboard first" : ""}
               >
               {generating ? (
                 <>
@@ -719,7 +634,7 @@ export default function CoverLetterPage() {
               ) : (
                 <>
                   <Sparkles className="w-5 h-5" />
-                  Generate Cover Letter
+                  {!resumeText && !enhancedResume ? 'Upload Resume First' : 'Generate Cover Letter'}
                 </>
               )}
               </motion.button>
