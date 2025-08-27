@@ -1,47 +1,67 @@
 import admin from 'firebase-admin';
+import path from 'path';
 
-// Mock Firebase Admin for development when credentials aren't available
-let auth, db;
+// Initialize Firebase Admin with service account (Auth only, no Firestore)
+let auth;
 
-if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
-  // Production configuration
+try {
   if (!admin.apps.length) {
+    // Use the service account JSON file directly
+    const serviceAccountPath = path.join(process.cwd(), 'rolefit-ai-cca18-firebase-adminsdk-fbsvc-6ddd270b08.json');
+    
     admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
+      credential: admin.credential.cert(serviceAccountPath),
+      projectId: 'rolefit-ai-cca18'
     });
   }
+  
   auth = admin.auth();
-  db = admin.firestore();
-} else {
-  // Mock implementation for development
-  console.warn('Using mock Firebase Admin for development');
   
-  auth = {
-    verifyIdToken: async (token) => {
-      // In development, accept any token
-      return { uid: 'dev-user-id', email: 'dev@example.com' };
+  console.log('Firebase Admin initialized successfully with service account');
+} catch (error) {
+  console.error('Failed to initialize Firebase Admin:', error);
+  
+  // Fallback to environment variables if service account file fails
+  try {
+    if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+      if (!admin.apps.length) {
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+          }),
+        });
+      }
+      auth = admin.auth();
+      console.log('Firebase Admin initialized with environment variables');
+    } else {
+      throw new Error('No Firebase credentials available');
     }
-  };
-  
-  db = {
-    collection: () => ({
-      doc: () => ({
-        set: async () => {},
-        get: async () => ({ exists: true, data: () => ({}) }),
-      }),
-      where: () => ({
-        get: async () => ({ docs: [], forEach: () => {} }),
-      }),
-    }),
-    doc: () => ({
-      set: async () => {},
-      get: async () => ({ exists: true, data: () => ({}) }),
-    }),
-  };
+  } catch (envError) {
+    console.warn('Using mock Firebase Admin for development');
+    
+    // Mock implementation for development
+    auth = {
+      verifyIdToken: async (token) => {
+        return { uid: 'dev-user-id', email: 'dev@example.com' };
+      },
+      createUser: async (userData) => {
+        return { uid: 'dev-user-id', ...userData };
+      },
+      updateUser: async (uid, userData) => {
+        return { uid, ...userData };
+      },
+      deleteUser: async (uid) => {
+        return { uid };
+      },
+      listUsers: async () => {
+        return { users: [] };
+      }
+    };
+    
+    // No Firestore mock needed - using MongoDB only
+  }
 }
 
 // Utility function to verify ID tokens
@@ -58,5 +78,5 @@ export async function verifyIdToken(token) {
   }
 }
 
-export { auth, db };
+export { auth };
 export default admin;

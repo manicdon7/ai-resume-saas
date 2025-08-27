@@ -104,6 +104,53 @@ export default function JobsPage() {
         const data = await response.json();
         dispatch(setRecommendedJobs(data.jobs || []));
         toast.success(`Found ${data.jobs?.length || 0} job recommendations`);
+        
+        // Send job match email notification if jobs found
+        if (data.jobs && data.jobs.length > 0 && user) {
+          try {
+            const token = await user.getIdToken();
+            
+            // Get user preferences to check if notifications are enabled
+            const preferencesRes = await fetch('/api/user/preferences', {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+
+            if (preferencesRes.ok) {
+              const preferences = await preferencesRes.json();
+              
+              if (preferences.isNotificationOn && preferences.emailPreferences?.jobMatches) {
+                const topJob = data.jobs[0]; // Get the best match
+                
+                await fetch('/api/send-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    type: 'jobMatch',
+                    email: user.email,
+                    authToken: token,
+                    templateData: {
+                      userName: user.displayName || user.email.split('@')[0] || 'User',
+                      jobsCount: data.jobs.length,
+                      topJob: {
+                        title: topJob.title || 'Position',
+                        company: topJob.company || 'Company',
+                        location: topJob.location || 'Location',
+                        matchScore: topJob.matchScore || 85,
+                        description: topJob.description?.substring(0, 200) + '...' || 'Great opportunity matching your profile'
+                      }
+                    }
+                  })
+                });
+              }
+            }
+          } catch (emailError) {
+            console.error('Error sending job match email:', emailError);
+            // Don't show error to user as this is background functionality
+          }
+        }
       } else {
         toast.error('Failed to fetch job recommendations');
       }
