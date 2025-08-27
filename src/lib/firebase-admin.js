@@ -1,47 +1,66 @@
 import admin from 'firebase-admin';
+import path from 'path';
 
-// Mock Firebase Admin for development when credentials aren't available
-let auth, db;
+// Initialize Firebase Admin with service account (Auth only, no Firestore)
+let auth;
 
-if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
-  // Production configuration
+try {
   if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
+    // Debug environment variables
+    console.log('Firebase env check:', {
+      hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
+      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+      projectId: process.env.FIREBASE_PROJECT_ID
     });
+
+    // Use environment variables for Firebase Admin SDK
+    if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
+      });
+      
+      auth = admin.auth();
+      console.log('Firebase Admin initialized with environment variables');
+    } else {
+      console.warn('Missing Firebase environment variables:', {
+        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || 'missing',
+        FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || 'missing',
+        FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY ? 'present' : 'missing'
+      });
+      throw new Error('Firebase environment variables not found');
+    }
+  } else {
+    auth = admin.auth();
   }
-  auth = admin.auth();
-  db = admin.firestore();
-} else {
-  // Mock implementation for development
+} catch (error) {
+  console.error('Failed to initialize Firebase Admin:', error);
   console.warn('Using mock Firebase Admin for development');
   
+  // Mock implementation for development
   auth = {
     verifyIdToken: async (token) => {
-      // In development, accept any token
       return { uid: 'dev-user-id', email: 'dev@example.com' };
+    },
+    createUser: async (userData) => {
+      return { uid: 'dev-user-id', ...userData };
+    },
+    updateUser: async (uid, userData) => {
+      return { uid, ...userData };
+    },
+    deleteUser: async (uid) => {
+      return { uid };
+    },
+    listUsers: async () => {
+      return { users: [] };
     }
   };
   
-  db = {
-    collection: () => ({
-      doc: () => ({
-        set: async () => {},
-        get: async () => ({ exists: true, data: () => ({}) }),
-      }),
-      where: () => ({
-        get: async () => ({ docs: [], forEach: () => {} }),
-      }),
-    }),
-    doc: () => ({
-      set: async () => {},
-      get: async () => ({ exists: true, data: () => ({}) }),
-    }),
-  };
+  // No Firestore mock needed - using MongoDB only
 }
 
 // Utility function to verify ID tokens
@@ -58,5 +77,5 @@ export async function verifyIdToken(token) {
   }
 }
 
-export { auth, db };
+export { auth };
 export default admin;

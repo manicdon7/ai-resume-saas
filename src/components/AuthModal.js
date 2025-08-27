@@ -18,14 +18,52 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     confirmPassword: '',
     name: ''
   });
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [showGoogleTermsModal, setShowGoogleTermsModal] = useState(false);
+  const [googleUser, setGoogleUser] = useState(null);
+  const [googleAcceptTerms, setGoogleAcceptTerms] = useState(false);
+  const [googleEmailNotifications, setGoogleEmailNotifications] = useState(true);
 
   const handleGoogleAuth = async () => {
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      toast.success('Successfully signed in with Google!');
-      onSuccess?.(result.user);
-      onClose();
+      
+      // For Google sign-in, show terms modal if user hasn't accepted terms
+      const token = await result.user.getIdToken();
+      const userResponse = await fetch('/api/user/sync', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      let needsTermsAcceptance = true;
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        needsTermsAcceptance = !userData.user?.acceptedTerms;
+      }
+
+      if (needsTermsAcceptance) {
+        // Show terms acceptance modal for Google users
+        setShowGoogleTermsModal(true);
+        setGoogleUser(result.user);
+      } else {
+        // User already accepted terms, proceed normally
+        await syncUserData(result.user, true, true, {
+          welcomeEmails: true,
+          resumeUpdates: true,
+          jobMatches: true,
+          weeklyDigest: true,
+          applicationReminders: true,
+          marketingEmails: false
+        });
+        
+        toast.success('Successfully signed in with Google!');
+        onSuccess?.(result.user);
+        onClose();
+      }
     } catch (error) {
       console.error('Google auth error:', error);
       toast.error('Failed to sign in with Google');
@@ -40,13 +78,29 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
 
     try {
       if (isSignUp) {
+        if (!acceptTerms) {
+          toast.error('Please accept the Terms and Conditions to continue');
+          setLoading(false);
+          return;
+        }
         if (formData.password !== formData.confirmPassword) {
           toast.error('Passwords do not match');
           setLoading(false);
           return;
         }
         const result = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-        toast.success('Account created successfully!');
+        
+        // Sync user data with MongoDB and Firebase
+        await syncUserData(result.user, true, emailNotifications, {
+          welcomeEmails: true,
+          resumeUpdates: emailNotifications,
+          jobMatches: emailNotifications,
+          weeklyDigest: emailNotifications,
+          applicationReminders: emailNotifications,
+          marketingEmails: false
+        }, true);
+
+        toast.success('Account created successfully! Welcome to RoleFitAI!');
         onSuccess?.(result.user);
       } else {
         const result = await signInWithEmailAndPassword(auth, formData.email, formData.password);
@@ -55,6 +109,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
       }
       onClose();
       setFormData({ email: '', password: '', confirmPassword: '', name: '' });
+      setAcceptTerms(false);
+      setEmailNotifications(true);
     } catch (error) {
       console.error('Auth error:', error);
       let errorMessage = error.code === 'auth/invalid-credential'
@@ -77,17 +133,78 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     }
   };
 
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  // Sync user data with MongoDB and Firebase
+  const syncUserData = async (user, acceptedTerms, isNotificationOn, emailPreferences, isNewUser = false) => {
+    try {
+      const token = await user.getIdToken();
+      await fetch('/api/user/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          acceptedTerms,
+          isNotificationOn,
+          emailPreferences,
+          isNewUser
+        })
+      });
+    } catch (error) {
+      console.error('Error syncing user data:', error);
+    }
+  };
+
+  // Handle Google terms acceptance
+  const handleGoogleTermsAcceptance = async () => {
+    if (!googleAcceptTerms) {
+      toast.error('Please accept the Terms and Conditions to continue');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await syncUserData(googleUser, true, googleEmailNotifications, {
+        welcomeEmails: true,
+        resumeUpdates: googleEmailNotifications,
+        jobMatches: googleEmailNotifications,
+        weeklyDigest: googleEmailNotifications,
+        applicationReminders: googleEmailNotifications,
+        marketingEmails: false
+      }, true);
+
+      toast.success('Successfully signed in with Google!');
+      onSuccess?.(googleUser);
+      setShowGoogleTermsModal(false);
+      onClose();
+    } catch (error) {
+      console.error('Error completing Google sign-in:', error);
+      toast.error('Failed to complete sign-in process');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50"
-        onClick={onClose}
-      >
+      {isOpen && (
+        <motion.div 
+          key="auth-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 z-50"
+          onClick={onClose}
+        >
         <motion.div 
           initial={{ scale: 0.8, opacity: 0, y: 50 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -212,7 +329,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                       <input
                         type="text"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={handleInputChange}
+                        name="name"
                         className="w-full pl-12 pr-4 py-4 border border-white/10 rounded-2xl bg-white/5 backdrop-blur-sm text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 focus:bg-white/10 transition-all duration-300 outline-none"
                         placeholder="Enter your full name"
                         required
@@ -298,32 +416,84 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                 )}
               </AnimatePresence>
 
+              {isSignUp && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-4"
+                >
+                  {/* Terms and Conditions */}
+                  <motion.div 
+                    className="flex items-start space-x-3"
+                    whileHover={{ scale: 1.01 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="acceptTerms"
+                      checked={acceptTerms}
+                      onChange={(e) => setAcceptTerms(e.target.checked)}
+                      className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      required
+                    />
+                    <label htmlFor="acceptTerms" className="text-sm text-gray-600 leading-5">
+                      I agree to the{' '}
+                      <a 
+                        href="https://rolefitai.vercel.app/terms" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-purple-600 hover:text-purple-700 underline transition-colors"
+                      >
+                        Terms and Conditions
+                      </a>{' '}
+                      and{' '}
+                      <a 
+                        href="https://rolefitai.vercel.app/privacy" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-purple-600 hover:text-purple-700 underline transition-colors"
+                      >
+                        Privacy Policy
+                      </a>
+                    </label>
+                  </motion.div>
+
+                  {/* Email Notifications */}
+                  <motion.div 
+                    className="flex items-start space-x-3"
+                    whileHover={{ scale: 1.01 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="emailNotifications"
+                      checked={emailNotifications}
+                      onChange={(e) => setEmailNotifications(e.target.checked)}
+                      className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="emailNotifications" className="text-sm text-gray-600 leading-5">
+                      I would like to receive email updates about job matches, resume enhancements, and other helpful notifications from RoleFitAI
+                    </label>
+                  </motion.div>
+                </motion.div>
+              )}
+
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
-                disabled={loading}
-                className="w-full mt-6 px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 font-semibold flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-purple-500/25 border border-purple-500/20"
+                disabled={loading || (isSignUp && !acceptTerms)}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Processing...
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    {isSignUp ? 'Creating Account...' : 'Signing In...'}
                   </div>
                 ) : (
-                  <>
-                    {isSignUp ? (
-                      <>
-                        <Shield className="w-5 h-5" />
-                        Create Account
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5" />
-                        Sign In
-                      </>
-                    )}
-                  </>
+                  isSignUp ? 'Create Account' : 'Sign In'
                 )}
               </motion.button>
             </motion.form>
@@ -358,7 +528,109 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
             </motion.div>
           </div>
         </motion.div>
-      </motion.div>
+        </motion.div>
+      )}
+
+      {/* Google Terms Modal */}
+      {showGoogleTermsModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-gray-700"
+          >
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Complete Your Registration</h3>
+              <p className="text-gray-400">Please accept our terms to continue with Google sign-in</p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Terms Acceptance */}
+              <div className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  id="googleAcceptTerms"
+                  checked={googleAcceptTerms}
+                  onChange={(e) => setGoogleAcceptTerms(e.target.checked)}
+                  className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  required
+                />
+                <label htmlFor="googleAcceptTerms" className="text-sm text-gray-300 leading-5">
+                  I agree to the{' '}
+                  <a 
+                    href="https://rolefitai.vercel.app/terms" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-purple-400 hover:text-purple-300 underline"
+                  >
+                    Terms and Conditions
+                  </a>{' '}
+                  and{' '}
+                  <a 
+                    href="https://rolefitai.vercel.app/privacy" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-purple-400 hover:text-purple-300 underline"
+                  >
+                    Privacy Policy
+                  </a>
+                </label>
+              </div>
+
+              {/* Email Notifications */}
+              <div className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  id="googleEmailNotifications"
+                  checked={googleEmailNotifications}
+                  onChange={(e) => setGoogleEmailNotifications(e.target.checked)}
+                  className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <label htmlFor="googleEmailNotifications" className="text-sm text-gray-300 leading-5">
+                  I would like to receive email updates about job matches, resume enhancements, and other helpful notifications
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleGoogleTermsAcceptance}
+                disabled={loading || !googleAcceptTerms}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Completing...
+                  </div>
+                ) : (
+                  'Continue'
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowGoogleTermsModal(false);
+                  setGoogleUser(null);
+                  setGoogleAcceptTerms(false);
+                  setGoogleEmailNotifications(true);
+                }}
+                className="px-6 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }

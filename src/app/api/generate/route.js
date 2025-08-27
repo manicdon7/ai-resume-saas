@@ -274,6 +274,53 @@ CRITICAL REQUIREMENTS:
             result = fallbackContent.join('\n');
         }
 
+        // Send resume enhancement email notification
+        try {
+          if (user && user.email) {
+            // Get user preferences to check if notifications are enabled
+            const preferencesRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/user/preferences`, {
+              method: 'GET',
+              headers: {
+                'Authorization': authHeader
+              }
+            });
+
+            if (preferencesRes.ok) {
+              const preferences = await preferencesRes.json();
+              
+              if (preferences.isNotificationOn && preferences.emailPreferences?.resumeUpdates) {
+                // Extract job title and company from job description for email
+                const jobTitleMatch = sanitizedJobDesc.match(/(?:job title|position|role):\s*([^\n\r]+)/i) || 
+                                    sanitizedJobDesc.match(/hiring for\s+([^\n\r]+)/i) ||
+                                    sanitizedJobDesc.match(/^([^\n\r]+)/);
+                const companyMatch = sanitizedJobDesc.match(/(?:company|organization):\s*([^\n\r]+)/i) ||
+                                   sanitizedJobDesc.match(/at\s+([A-Z][a-zA-Z\s&]+)/);
+
+                const jobTitle = jobTitleMatch ? jobTitleMatch[1].trim() : 'Position';
+                const companyName = companyMatch ? companyMatch[1].trim() : 'Company';
+
+                await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/send-email`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    type: 'resumeEnhanced',
+                    email: user.email,
+                    authToken: authHeader.split('Bearer ')[1],
+                    templateData: {
+                      userName: user.name || user.displayName || 'User',
+                      jobTitle,
+                      companyName
+                    }
+                  })
+                });
+              }
+            }
+          }
+        } catch (emailError) {
+          console.error('Error sending resume enhancement email:', emailError);
+          // Don't fail the main request if email fails
+        }
+
         return NextResponse.json({ text: result });
 
     } catch (error) {
