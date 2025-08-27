@@ -8,7 +8,7 @@ export class UserService {
   static async getMongoClient() {
     try {
       const client = await clientPromise;
-      return client.db('rolefit-ai');
+      return client.db('roleFitAi');
     } catch (error) {
       console.error('MongoDB connection error:', error);
       throw error;
