@@ -66,7 +66,7 @@ const ATSOptimizer = ({
     if (resumeContent && jobDescription) {
       performATSAnalysis();
     }
-  }, [resumeContent, jobDescription]);
+  }, [resumeContent, jobDescription, performATSAnalysis]);
 
   const getInsightColors = (type) => {
     switch (type) {

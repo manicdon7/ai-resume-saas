@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../../../lib/firebase';
-import { toast } from 'react-hot-toast';
+import { showToast, toastMessages } from '@/lib/toast-config';
 import { useRouter } from 'next/navigation';
 import { 
   Settings, 
@@ -49,15 +49,6 @@ export default function SettingsPage() {
     }
   });
 
-  useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.push('/');
-      return;
-    }
-    loadUserData();
-  }, [user, loading]);
-
   const loadUserData = async () => {
     setLoadingData(true);
     try {
@@ -90,11 +81,20 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-      toast.error('Failed to load user data');
+      showToast('Failed to load user data', 'error');
     } finally {
       setLoadingData(false);
     }
   };
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.push('/');
+      return;
+    }
+    loadUserData();
+  }, [user, loading, router]);
 
   const saveSettings = async () => {
     setSaving(true);
@@ -114,13 +114,13 @@ export default function SettingsPage() {
       });
 
       if (response.ok) {
-        toast.success('Settings saved successfully!');
+        showToast('Settings saved successfully!', 'success');
       } else {
-        toast.error('Failed to save settings');
+        showToast('Failed to save settings', 'error');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('Error saving settings');
+      showToast('Error saving settings', 'error');
     } finally {
       setSaving(false);
     }
@@ -541,7 +541,7 @@ export default function SettingsPage() {
                 <button
                   onClick={() => {
                     // Implement account deletion logic here
-                    toast.error('Account deletion not implemented yet');
+                    showToast.error('Account deletion not implemented yet');
                     setShowDeleteConfirm(false);
                   }}
                   className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"

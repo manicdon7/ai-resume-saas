@@ -77,5 +77,22 @@ export async function verifyIdToken(token) {
   }
 }
 
-export { auth };
+// Mock db for compatibility with existing code that imports it
+// Since we're using MongoDB, we'll provide a mock Firestore interface
+const db = {
+  collection: (name) => ({
+    doc: (id) => ({
+      get: async () => ({ exists: false, data: () => ({}) }),
+      set: async (data) => ({ success: true }),
+      update: async (data) => ({ success: true }),
+      delete: async () => ({ success: true })
+    }),
+    where: () => ({
+      get: async () => ({ size: 0, docs: [], forEach: () => {} })
+    }),
+    get: async () => ({ size: 0, docs: [], forEach: () => {} })
+  })
+};
+
+export { auth, db };
 export default admin;

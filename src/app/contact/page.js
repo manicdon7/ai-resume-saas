@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail, MessageCircle, Globe } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import Navbar from '@/components/Navbar';
+import { showToast, toastMessages } from '@/lib/toast-config';
 import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -41,7 +42,7 @@ export default function Contact() {
 
     // Simulate form submission (you can integrate with your preferred email service)
     setTimeout(() => {
-      toast.success('Message sent successfully! We\'ll get back to you soon.');
+      showToast.success(toastMessages.email.sent);
       setFormData({ name: '', email: '', subject: '', message: '' });
       setSending(false);
     }, 2000);
@@ -204,10 +205,10 @@ export default function Contact() {
 
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={sending}
                     className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-purple-500/25"
                   >
-                    {isSubmitting ? 'Sending...' : 'Send Message'}
+                    {sending ? 'Sending...' : 'Send Message'}
                   </button>
                 </form>
               </div>

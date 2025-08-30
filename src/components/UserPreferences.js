@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../lib/firebase';
-import { toast } from 'react-hot-toast';
+import { showToast, toastMessages } from '@/lib/toast-config';
 import { 
   Bell, 
   Mail, 
@@ -35,12 +35,6 @@ export default function UserPreferences({ isOpen, onClose }) {
   });
 
   // Load user preferences on component mount
-  useEffect(() => {
-    if (user && isOpen) {
-      loadPreferences();
-    }
-  }, [user, isOpen]);
-
   const loadPreferences = async () => {
     setLoading(true);
     try {
@@ -55,15 +49,21 @@ export default function UserPreferences({ isOpen, onClose }) {
         const data = await response.json();
         setPreferences(data);
       } else {
-        toast.error('Failed to load preferences');
+        showToast('Failed to load preferences', 'error');
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
-      toast.error('Error loading preferences');
+      showToast('Error loading preferences', 'error');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user && isOpen) {
+      loadPreferences();
+    }
+  }, [user, isOpen]);
 
   const savePreferences = async () => {
     setSaving(true);
@@ -79,13 +79,13 @@ export default function UserPreferences({ isOpen, onClose }) {
       });
 
       if (response.ok) {
-        toast.success('Preferences saved successfully!');
+        showToast.success('Preferences saved successfully!');
       } else {
-        toast.error('Failed to save preferences');
+        showToast.error('Failed to save preferences');
       }
     } catch (error) {
       console.error('Error saving preferences:', error);
-      toast.error('Error saving preferences');
+      showToast.error('Error saving preferences');
     } finally {
       setSaving(false);
     }

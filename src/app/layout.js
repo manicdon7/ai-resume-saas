@@ -1,6 +1,8 @@
 import { Inter, Poppins, JetBrains_Mono } from "next/font/google";
-import { Toaster } from 'react-hot-toast';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import "./globals.css"
+import "../styles/toast-styles.css"
 import Script from "next/script";
 import ReduxProvider from '../components/ReduxProvider';
 
@@ -90,16 +92,21 @@ export default function RootLayout({ children }) {
       <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}>
         <ReduxProvider>
           {children}
-          <Toaster
+          <ToastContainer
             position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: 'hsl(var(--card))',
-                color: 'hsl(var(--card-foreground))',
-                border: '1px solid hsl(var(--border))',
-              },
-            }}
+            autoClose={4000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="dark"
+            className="toast-container"
+            toastClassName="custom-toast"
+            bodyClassName="custom-toast-body"
+            progressClassName="custom-toast-progress"
           />
         </ReduxProvider>
       </body>

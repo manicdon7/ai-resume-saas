@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { toast } from 'react-hot-toast';
+import { showToast, toastMessages } from '@/lib/toast-config';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import Navbar from '@/components/Navbar';
@@ -32,7 +32,7 @@ function PaymentSuccessContent() {
         .then(res => res.json())
         .then(data => {
           if (data.success) {
-            toast.success('Pro upgrade successful!');
+            showToast.success('Pro upgrade successful!');
           }
           setLoading(false);
         })

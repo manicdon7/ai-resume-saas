@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider } from '../../lib/firebase';
 import { X, Mail, Lock, User, Eye, EyeOff, Sparkles, Shield, Zap } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { showToast, toastMessages } from '@/lib/toast-config';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AuthModal({ isOpen, onClose, onSuccess }) {
@@ -60,13 +60,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
           marketingEmails: false
         });
         
-        toast.success('Successfully signed in with Google!');
+        showToast.success(toastMessages.auth.loginSuccess);
         onSuccess?.(result.user);
         onClose();
       }
     } catch (error) {
       console.error('Google auth error:', error);
-      toast.error('Failed to sign in with Google');
+      showToast.error(toastMessages.auth.loginError);
     } finally {
       setLoading(false);
     }
@@ -79,12 +79,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     try {
       if (isSignUp) {
         if (!acceptTerms) {
-          toast.error('Please accept the Terms and Conditions to continue');
+          showToast.error('Please accept the Terms and Conditions to continue');
           setLoading(false);
           return;
         }
         if (formData.password !== formData.confirmPassword) {
-          toast.error('Passwords do not match');
+          showToast.error('Passwords do not match');
           setLoading(false);
           return;
         }
@@ -100,11 +100,11 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
           marketingEmails: false
         }, true);
 
-        toast.success('Account created successfully! Welcome to RoleFitAI!');
+        showToast.success(toastMessages.auth.signupSuccess);
         onSuccess?.(result.user);
       } else {
         const result = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        toast.success('Signed in successfully!');
+        showToast.success(toastMessages.auth.loginSuccess);
         onSuccess?.(result.user);
       }
       onClose();
@@ -127,7 +127,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
         errorMessage = 'Network error. Please check your internet connection.';
       }
 
-      toast.error(errorMessage);
+      showToast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -159,13 +159,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
       });
     } catch (error) {
       console.error('Error syncing user data:', error);
+      showToast.error('Failed to sync user data');
     }
   };
 
   // Handle Google terms acceptance
   const handleGoogleTermsAcceptance = async () => {
     if (!googleAcceptTerms) {
-      toast.error('Please accept the Terms and Conditions to continue');
+      showToast.error('Please accept the Terms and Conditions to continue');
       return;
     }
 
@@ -180,13 +181,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
         marketingEmails: false
       }, true);
 
-      toast.success('Successfully signed in with Google!');
+      showToast.success(toastMessages.auth.loginSuccess);
       onSuccess?.(googleUser);
       setShowGoogleTermsModal(false);
       onClose();
     } catch (error) {
       console.error('Error completing Google sign-in:', error);
-      toast.error('Failed to complete sign-in process');
     } finally {
       setLoading(false);
     }
