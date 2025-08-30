@@ -9,7 +9,7 @@ import { auth } from '../../../lib/firebase';
 import { setUser, signOut as reduxSignOut } from '../../store/slices/authSlice';
 import { setResumeText, setParsedData } from '../../store/slices/resumeSlice';
 import Navbar from '@/components/Navbar';
-import { toast } from 'react-hot-toast';
+import { showToast, toastMessages } from '@/lib/toast-config';
 import { 
   FileText, 
   Sparkles, 

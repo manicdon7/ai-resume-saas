@@ -339,8 +339,10 @@ export class AdminUtils {
 }
 
 // Export all classes
-export default {
+const adminUtils = {
   AdminUserManager,
   AdminAnalytics,
   AdminUtils
 };
+
+export default adminUtils;

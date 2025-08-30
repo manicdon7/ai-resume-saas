@@ -30,7 +30,7 @@ import {
   Brain,
   Lightbulb
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { showToast, toastMessages } from '@/lib/toast-config';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -78,11 +78,11 @@ export default function LandingPage() {
     setLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
-      toast.success('Successfully signed in!');
+      showToast.success(toastMessages.auth.loginSuccess);
       router.push('/dashboard');
     } catch (error) {
       console.error('Sign in error:', error);
-      toast.error('Failed to sign in');
+      showToast.error(toastMessages.auth.loginError);
     } finally {
       setLoading(false);
     }
@@ -91,10 +91,10 @@ export default function LandingPage() {
   const handleSignOut = async () => {
     try {
       await auth.signOut();
-      toast.success('Signed out successfully!');
+      showToast.success(toastMessages.auth.logoutSuccess);
     } catch (error) {
       console.error('Sign out error:', error);
-      toast.error('Failed to sign out');
+      showToast.error('Failed to sign out');
     }
   };
 
@@ -107,7 +107,7 @@ export default function LandingPage() {
   };
 
   const handleAuthSuccess = (user) => {
-    toast.success('Welcome to RoleFitAI!');
+    showToast.success('Welcome to RoleFitAI!');
     router.push('/dashboard');
   };
 
