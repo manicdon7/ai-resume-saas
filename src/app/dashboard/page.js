@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import { setUser, setCredits, signOut as reduxSignOut } from '../../store/slices/authSlice';
-import { setParsedData, setResumeText, clearResume } from '../../store/slices/resumeSlice';
+import { setResumeText, clearResume } from '../../store/slices/resumeSlice';
 import { motion } from 'framer-motion';
 import {
   FileText,
@@ -34,17 +34,69 @@ export default function DashboardPage() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [loadingCredits, setLoadingCredits] = useState(false);
 
   const fetchUserData = async (currentUser) => {
     try {
       const token = await currentUser.getIdToken();
-      dispatch(setCredits(100));
+      
+      // Fetch user credits from API
+      const creditsResponse = await fetch('/api/user/credits', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (creditsResponse.ok) {
+        const creditsData = await creditsResponse.json();
+        dispatch(setCredits(creditsData.credits));
+        
+        // Update pro status if available
+        if (creditsData.isPro !== undefined) {
+          // You might need to add setProStatus to your auth slice if it doesn't exist
+          // dispatch(setProStatus(creditsData.isPro));
+        }
+      } else {
+        // Fallback to default credits if API fails
+        dispatch(setCredits(3));
+      }
+
+      // Mock activity data - you can replace this with real API call later
       setRecentActivity([
-        { type: 'resume_upload', date: new Date().toISOString(), description: 'Resume uploaded' },
-        { type: 'job_search', date: new Date().toISOString(), description: 'Job search performed' }
+        { type: 'resume_upload', date: new Date().toISOString(), description: 'Resume uploaded', timestamp: 'Just now' },
+        { type: 'job_search', date: new Date().toISOString(), description: 'Job search performed', timestamp: '2 hours ago' }
       ]);
     } catch (error) {
       console.error('Error fetching user data:', error);
+      // Fallback to default credits on error
+      dispatch(setCredits(3));
+    }
+  };
+
+  const refreshCredits = async () => {
+    if (!user) return;
+    
+    setLoadingCredits(true);
+    try {
+      const token = await user.getIdToken();
+      const creditsResponse = await fetch('/api/user/credits', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (creditsResponse.ok) {
+        const creditsData = await creditsResponse.json();
+        dispatch(setCredits(creditsData.credits));
+        showToast.success('Credits refreshed!');
+      } else {
+        showToast.error('Failed to refresh credits');
+      }
+    } catch (error) {
+      console.error('Error refreshing credits:', error);
+      showToast.error('Error refreshing credits');
+    } finally {
+      setLoadingCredits(false);
     }
   };
 
@@ -61,6 +113,17 @@ export default function DashboardPage() {
 
     return () => unsubscribe();
   }, [dispatch, router]);
+
+  // Refresh credits periodically (every 5 minutes) to keep them up to date
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      refreshCredits();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleSignOut = async () => {
     try {
@@ -94,6 +157,8 @@ export default function DashboardPage() {
       if (data.text) {
         dispatch(setResumeText(data.text));
         showToast.success(`Successfully uploaded ${file.name}`);
+        // Refresh credits after successful upload in case it consumed a credit
+        refreshCredits();
       } else {
         showToast.error('Failed to extract text from file');
       }
@@ -172,7 +237,27 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-400">Credits Remaining</p>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">{credits}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                      {isPro ? credits : credits}
+                    </p>
+                    {!isPro && (
+                      <button
+                        onClick={refreshCredits}
+                        disabled={loadingCredits}
+                        className="text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                        title="Refresh credits"
+                      >
+                        {loadingCredits ? '⟳' : ''}
+                      </button>
+                    )}
+                  </div>
+                  {isPro && (
+                    <p className="text-xs text-yellow-400">Unlimited</p>
+                  )}
+                  {!isPro && credits <= 1 && (
+                    <p className="text-xs text-orange-400">Daily limit resets at midnight</p>
+                  )}
                 </div>
                 <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                   <Zap className="w-6 h-6 text-white" />
@@ -366,7 +451,21 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-400">Credits</span>
-                    <span className="text-sm font-medium text-white">{credits}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white">
+                        {isPro ? '∞' : credits}
+                      </span>
+                      {!isPro && (
+                        <button
+                          onClick={refreshCredits}
+                          disabled={loadingCredits}
+                          className="text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                          title="Refresh credits"
+                        >
+                          {loadingCredits ? '⟳' : ''}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {!isPro && (
                     <Link
