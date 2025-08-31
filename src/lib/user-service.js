@@ -1,5 +1,5 @@
-import clientPromise from '../../lib/mongodb';
-import { auth } from './firebase-admin';
+import clientPromise from '../../lib/mongodb.js';
+import { auth } from './firebase-admin.js';
 
 /**
  * Comprehensive user service for MongoDB and Firebase integration
@@ -166,6 +166,173 @@ export class UserService {
       return await this.getUserById(uid);
     } catch (error) {
       console.error('Error updating user credits:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get individual user dashboard statistics
+   */
+  static async getUserDashboardStats(uid) {
+    try {
+      const mongoDb = await this.getMongoClient();
+      const usersCollection = mongoDb.collection('users');
+      const activitiesCollection = mongoDb.collection('activities');
+      const resumesCollection = mongoDb.collection('resumes');
+
+      // Get user data
+      const user = await usersCollection.findOne({ uid });
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Get activity counts
+      const [
+        resumesCreated,
+        applicationsSent,
+        jobSearches,
+        totalActivities,
+        recentActivity
+      ] = await Promise.all([
+        activitiesCollection.countDocuments({ 
+          userId: uid, 
+          type: 'resume_upload' 
+        }),
+        activitiesCollection.countDocuments({ 
+          userId: uid, 
+          type: 'job_application' 
+        }),
+        activitiesCollection.countDocuments({ 
+          userId: uid, 
+          type: 'job_search' 
+        }),
+        activitiesCollection.countDocuments({ userId: uid }),
+        activitiesCollection.find({ userId: uid })
+          .sort({ timestamp: -1 })
+          .limit(10)
+          .toArray()
+      ]);
+
+      return {
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          credits: user.credits || 0,
+          isPro: user.isPro || false,
+          lastLoginAt: user.lastLoginAt
+        },
+        stats: {
+          creditsRemaining: user.credits || 0,
+          resumesCreated,
+          applicationsSent,
+          jobSearches,
+          totalActivities,
+          lastActivityAt: recentActivity.length > 0 ? recentActivity[0].timestamp : null
+        },
+        recentActivity: recentActivity.map(activity => ({
+          id: activity._id.toString(),
+          type: activity.type,
+          description: activity.description,
+          metadata: activity.metadata || {},
+          timestamp: activity.timestamp
+        }))
+      };
+    } catch (error) {
+      console.error('Error getting user dashboard stats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user resume data
+   */
+  static async getResumeData(uid) {
+    try {
+      const mongoDb = await this.getMongoClient();
+      const resumesCollection = mongoDb.collection('resumes');
+      
+      const resume = await resumesCollection.findOne({ userId: uid });
+      return resume;
+    } catch (error) {
+      console.error('Error getting resume data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add user activity
+   */
+  static async addUserActivity(userId, type, description, metadata = {}) {
+    try {
+      const mongoDb = await this.getMongoClient();
+      const activitiesCollection = mongoDb.collection('activities');
+
+      const activity = {
+        userId,
+        type,
+        description,
+        metadata,
+        timestamp: new Date().toISOString()
+      };
+
+      const result = await activitiesCollection.insertOne(activity);
+      
+      // Update user's last activity timestamp
+      const usersCollection = mongoDb.collection('users');
+      await usersCollection.updateOne(
+        { uid: userId },
+        { 
+          $set: { 
+            lastActivityAt: activity.timestamp,
+            updatedAt: new Date().toISOString()
+          }
+        }
+      );
+
+      return {
+        ...activity,
+        id: result.insertedId.toString()
+      };
+    } catch (error) {
+      console.error('Error adding user activity:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user activities with pagination
+   */
+  static async getUserActivities(uid, options = {}) {
+    try {
+      const { limit = 20, skip = 0, type = null } = options;
+      
+      const mongoDb = await this.getMongoClient();
+      const activitiesCollection = mongoDb.collection('activities');
+
+      const query = { userId: uid };
+      if (type) {
+        query.type = type;
+      }
+
+      const activities = await activitiesCollection
+        .find(query)
+        .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      return activities.map(activity => ({
+        id: activity._id.toString(),
+        userId: activity.userId,
+        type: activity.type,
+        description: activity.description,
+        metadata: activity.metadata || {},
+        timestamp: activity.timestamp
+      }));
+    } catch (error) {
+      console.error('Error getting user activities:', error);
       throw error;
     }
   }

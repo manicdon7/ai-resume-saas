@@ -54,6 +54,9 @@ const jobsSlice = createSlice({
     },
     clearJobs: (state) => {
       return initialState;
+    },
+    signOut: (state) => {
+      return initialState;
     }
   }
 });
@@ -67,6 +70,7 @@ export const {
   addAppliedJob, 
   setSearchFilters, 
   setLoading, 
-  clearJobs 
+  clearJobs,
+  signOut
 } = jobsSlice.actions;
 export default jobsSlice.reducer;

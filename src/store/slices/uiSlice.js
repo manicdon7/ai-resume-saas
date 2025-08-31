@@ -41,6 +41,16 @@ const uiSlice = createSlice({
     setLoading: (state, action) => {
       const { key, value } = action.payload;
       state.loading[key] = value;
+    },
+    signOut: (state) => {
+      // Reset UI state but keep theme preference
+      return {
+        ...initialState,
+        theme: state.theme
+      };
+    },
+    clearNotifications: (state) => {
+      state.notifications = [];
     }
   }
 });
@@ -51,6 +61,8 @@ export const {
   addNotification, 
   removeNotification, 
   setTheme, 
-  setLoading 
+  setLoading,
+  signOut,
+  clearNotifications
 } = uiSlice.actions;
 export default uiSlice.reducer;
