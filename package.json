@@ -38,6 +38,7 @@
     "pdfkit": "^0.17.1",
     "puppeteer": "^24.16.2",
     "react": "^19.1.0",
+    "react-animated-cursor": "^2.11.2",
     "react-dom": "^19.1.0",
     "react-firebase-hooks": "^5.1.1",
     "react-hot-toast": "^2.6.0",

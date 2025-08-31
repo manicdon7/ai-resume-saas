@@ -5,7 +5,7 @@ export async function POST(request) {
     try {
         // --- Credit System Start ---
         const authHeader = request.headers.get('authorization');
-        const creditResult = await CreditsService.middleware(request);
+        const creditResult = await CreditsService.middleware(request, CreditsService.CREDIT_ACTIONS.RESUME_PARSE);
         
         if (creditResult.response) {
             return creditResult.response;
@@ -13,6 +13,7 @@ export async function POST(request) {
         
         const user = creditResult.user;
         const isPro = creditResult.isPro;
+        const transaction = creditResult.transaction;
         // --- Credit System End ---
 
         // Add timeout for request parsing

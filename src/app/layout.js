@@ -5,6 +5,7 @@ import "./globals.css"
 import "../styles/toast-styles.css"
 import Script from "next/script";
 import ReduxProvider from '../components/ReduxProvider';
+import AnimatedCursor from '../components/AnimatedCursor';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -90,6 +91,7 @@ export default function RootLayout({ children }) {
           crossOrigin="anonymous"></script>
       </head>
       <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}>
+        <AnimatedCursor />
         <ReduxProvider>
           {children}
           <ToastContainer

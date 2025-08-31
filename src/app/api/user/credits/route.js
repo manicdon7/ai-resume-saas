@@ -13,7 +13,8 @@ export async function GET(request) {
     return NextResponse.json({
       credits: result.credits === 'unlimited' ? 999 : result.credits,
       isPro: result.isPro,
-      unlimited: result.credits === 'unlimited'
+      unlimited: result.credits === 'unlimited',
+      lastUpdated: result.lastUpdated
     });
   } catch (error) {
     console.error('Credits API error:', error);

@@ -10,6 +10,9 @@ import { setRecommendedJobs, setSavedJobs, setAppliedJobs, setLoading } from '@/
 import { setUser } from '@/store/slices/authSlice';
 import { showToast } from '@/lib/toast-config';
 import Navbar from '@/components/Navbar';
+import CreditProtectedAction from '@/components/CreditProtectedAction';
+import FeatureAvailabilityIndicator from '@/components/FeatureAvailabilityIndicator';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { 
   Briefcase, 
   MapPin, 
@@ -33,6 +36,7 @@ export default function JobsPage() {
   const { user, isAuthenticated } = useSelector(state => state.auth);
   const { resumeText, parsedData } = useSelector(state => state.resume);
   const { recommendedJobs, savedJobs, appliedJobs, loading } = useSelector(state => state.jobs);
+  const { isFeatureAvailable, getFeatureStatus } = useFeatureAccess();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState({
@@ -427,18 +431,29 @@ export default function JobsPage() {
                       <Filter className="w-4 h-4" />
                       Filters
                     </button>
-                    <button
-                      onClick={handleSearch}
-                      disabled={loading}
-                      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-200 disabled:opacity-50 flex items-center gap-2 shadow-lg font-medium"
+                    <CreditProtectedAction 
+                      action="job_search"
+                      requiredCredits={1}
+                      showUpgradePrompt={true}
                     >
-                      {loading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <SearchIcon className="w-4 h-4" />
-                      )}
-                      Search
-                    </button>
+                      <button
+                        onClick={handleSearch}
+                        disabled={loading}
+                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-200 disabled:opacity-50 flex items-center gap-2 shadow-lg font-medium"
+                      >
+                        {loading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <SearchIcon className="w-4 h-4" />
+                        )}
+                        Search
+                        <FeatureAvailabilityIndicator 
+                          featureName="jobSearch"
+                          size="small"
+                          className="ml-2"
+                        />
+                      </button>
+                    </CreditProtectedAction>
                   </div>
                 </div>
 

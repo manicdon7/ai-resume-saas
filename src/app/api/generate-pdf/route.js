@@ -5,13 +5,13 @@ import { CreditsService } from '../../../lib/credits-service';
 export async function POST(request) {
   try {
     // --- Credit System Start ---
-    const creditResult = await CreditsService.middleware(request);
+    const creditResult = await CreditsService.middleware(request, CreditsService.CREDIT_ACTIONS.PDF_GENERATION);
     
     if (creditResult.response) {
       return creditResult.response;
     }
     
-    const { user, isPro } = creditResult;
+    const { user, isPro, transaction } = creditResult;
     // --- Credit System End ---
     const body = await request.json();
     const resumeContent = body.content;

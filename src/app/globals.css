@@ -23,6 +23,77 @@
   --font-inter: 'Inter', sans-serif;
   --font-poppins: 'Poppins', sans-serif;
   --font-jetbrains-mono: 'JetBrains Mono', monospace;
+
+  /* Enhanced Animation Variables */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --duration-slower: 750ms;
+  --duration-slowest: 1000ms;
+
+  --easing-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --easing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --easing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --easing-elastic: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* Cursor Variables */
+  --cursor-default-size: 20px;
+  --cursor-interactive-size: 32px;
+  --cursor-text-size: 2px;
+  --cursor-loading-size: 24px;
+  --cursor-disabled-size: 16px;
+  --cursor-drag-size: 28px;
+
+  --cursor-default-color: rgba(168, 85, 247, 0.6);
+  --cursor-interactive-color: rgba(168, 85, 247, 0.8);
+}
+
+/* Custom cursor styles */
+* {
+  cursor: none !important;
+}
+
+/* Override for specific elements that need default cursor behavior */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea {
+  cursor: text !important;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Blob animation for background effects */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
 }
 
 /* Dark theme (default) */
@@ -101,70 +172,6 @@
     border: 1px solid rgba(42, 42, 42, 0.8);
   }
 
-  .glass-primary {
-    background: rgba(99, 102, 241, 0.08);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(99, 102, 241, 0.15);
-  }
-
-  .glass-secondary {
-    background: rgba(139, 92, 246, 0.08);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(139, 92, 246, 0.15);
-  }
-
-  .glass-accent {
-    background: rgba(6, 182, 212, 0.08);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(6, 182, 212, 0.15);
-  }
-
-  /* Modern Button Styles */
-  .btn-primary {
-    background: linear-gradient(to right, var(--primary), var(--secondary));
-    color: var(--primary-foreground);
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.25);
-  }
-
-  .btn-primary:hover {
-    transform: scale(1.05);
-    box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.3);
-  }
-
-  .btn-secondary {
-    background: var(--muted);
-    color: var(--foreground);
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    border: 1px solid var(--border);
-  }
-
-  .btn-secondary:hover {
-    background: rgba(31, 31, 31, 0.8);
-    transform: scale(1.05);
-  }
-
-  .btn-accent {
-    background: linear-gradient(to right, var(--accent), var(--primary));
-    color: var(--accent-foreground);
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    box-shadow: 0 10px 15px -3px rgba(6, 182, 212, 0.25);
-  }
-
-  .btn-accent:hover {
-    transform: scale(1.05);
-    box-shadow: 0 20px 25px -5px rgba(6, 182, 212, 0.3);
-  }
-
   /* Card Styles */
   .card {
     background: rgba(31, 31, 31, 0.5);
@@ -179,113 +186,50 @@
     transform: scale(1.02);
     box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.1);
   }
-
-  /* Input Styles */
-  .input-field {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    background: var(--input);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    color: var(--foreground);
-    transition: all 0.3s ease;
-  }
-
-  .input-field:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--ring);
-    border-color: var(--primary);
-  }
-
-  /* Mobile Navigation Styles */
-  .mobile-nav {
-    transform: translateX(100%);
-    transition: transform 0.3s ease-in-out;
-  }
-
-  .mobile-nav.open {
-    transform: translateX(0);
-  }
-
-  .mobile-nav-backdrop {
-    backdrop-filter: blur(10px);
-    background: rgba(10, 10, 10, 0.9);
-  }
-
-  /* Hide scrollbar for sliding tabs */
-  .sliding-tabs {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .sliding-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Mobile tab indicators */
-  .tab-indicator {
-    transition: all 0.3s ease;
-  }
-
-  /* Smooth transitions for all elements */
-  .transition-all {
-    transition: all 0.3s ease;
-  }
-
-  /* Mobile responsive utilities */
-  @media (max-width: 768px) {
-    .mobile-full-width {
-      width: 100vw;
-      margin-left: calc(-50vw + 50%);
-      margin-right: calc(-50vw + 50%);
-    }
-    
-    .mobile-padding {
-      padding-left: 1rem;
-      padding-right: 1rem;
-    }
-  }
-
-  /* Gradient Text */
-  .gradient-text {
-    background: linear-gradient(to right, var(--primary), var(--secondary), var(--accent));
-    background-clip: text;
-    color: transparent;
-  }
 }
 
 @layer utilities {
-  /* Animation Delays */
-  .animation-delay-100 { animation-delay: 100ms; }
-  .animation-delay-200 { animation-delay: 200ms; }
-  .animation-delay-300 { animation-delay: 300ms; }
-  .animation-delay-400 { animation-delay: 400ms; }
-  .animation-delay-500 { animation-delay: 500ms; }
-
-  /* Gradient Animation */
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient 3s ease infinite;
+  /* Animation Classes */
+  @keyframes fadeIn {
+    from { 
+      opacity: 0; 
+      transform: translateY(20px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
   }
 
-  @keyframes gradient {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  /* Gradient Shine Animation */
-  @keyframes gradient-shine {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  /* Float Animation */
   @keyframes float {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    33% { transform: translateY(-10px) rotate(1deg); }
-    66% { transform: translateY(5px) rotate(-1deg); }
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-fade-in { 
+    animation: fadeIn var(--duration-normal) var(--easing-ease-out); 
+  }
+  
+  .animate-float { 
+    animation: float 6s var(--easing-ease-in-out) infinite; 
+  }
+
+  /* Transform Utilities */
+  .hover-lift:hover {
+    transform: translateY(-4px);
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.05);
+  }
+
+  /* Transition Utilities */
+  .transition-fast { 
+    transition: all var(--duration-fast) var(--easing-ease-out); 
+  }
+  
+  .transition-normal { 
+    transition: all var(--duration-normal) var(--easing-ease-out); 
   }
 
   /* Custom Scrollbar for Dark Theme */
@@ -308,11 +252,6 @@
     background: var(--secondary);
   }
 
-  /* Global Transitions */
-  * {
-    transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
-  }
-
   /* Text Selection */
   ::selection {
     background: var(--primary);
@@ -320,8 +259,37 @@
   }
 
   /* Focus Visible */
-  .focus-visible {
+  *:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* Enhanced cursor interactions */
+button, a, [role="button"], [data-cursor] {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:hover, a:hover, [role="button"]:hover {
+  transform: translateY(-1px);
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-float,
+  .animate-blob {
+    animation: none;
+  }
+
+  .transition-fast,
+  .transition-normal {
+    transition: none;
+  }
+
+  .hover-lift:hover,
+  .hover-scale:hover {
+    transform: none;
   }
 }

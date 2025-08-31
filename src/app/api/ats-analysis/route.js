@@ -4,7 +4,7 @@ import { CreditsService } from '../../../lib/credits-service';
 export async function POST(request) {
     try {
         // --- Credit System Start ---
-        const creditResult = await CreditsService.middleware(request);
+        const creditResult = await CreditsService.middleware(request, CreditsService.CREDIT_ACTIONS.ATS_ANALYSIS);
         
         if (creditResult.response) {
             return creditResult.response;
@@ -12,6 +12,7 @@ export async function POST(request) {
         
         const user = creditResult.user;
         const isPro = creditResult.isPro;
+        const transaction = creditResult.transaction;
         // --- Credit System End ---
 
         const timeoutPromise = new Promise((_, reject) =>

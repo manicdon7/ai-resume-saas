@@ -7,6 +7,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import ATSOptimizer from '../../components/ATSOptimizer';
 import Navbar from '@/components/Navbar';
+import CreditProtectedAction from '@/components/CreditProtectedAction';
+import FeatureAvailabilityIndicator from '@/components/FeatureAvailabilityIndicator';
 import Link from 'next/link';
 import { ArrowLeft, Target, Sparkles, FileText, Briefcase } from 'lucide-react';
 
@@ -51,7 +53,7 @@ function AnalysisContent() {
     // Get data from URL parameters or localStorage
     const resumeParam = searchParams.get('resume');
     const jobParam = searchParams.get('job');
-    
+
     if (resumeParam && jobParam) {
       try {
         const decodedResume = decodeURIComponent(resumeParam);
@@ -65,7 +67,7 @@ function AnalysisContent() {
       // Try to get from localStorage as fallback
       const savedResume = localStorage.getItem('ats-resume-content');
       const savedJob = localStorage.getItem('ats-job-description');
-      
+
       if (savedResume && savedJob) {
         setResumeContent(savedResume);
         setJobDescription(savedJob);
@@ -73,7 +75,7 @@ function AnalysisContent() {
         setShowForm(true);
       }
     }
-    
+
     return () => unsubscribe();
   }, [searchParams]);
 
@@ -131,7 +133,7 @@ function AnalysisContent() {
           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
         </div>
-        <motion.div 
+        <motion.div
           className="text-center relative z-10"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -155,7 +157,7 @@ function AnalysisContent() {
           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
         </div>
-        
+
         {/* Floating Orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
@@ -201,13 +203,13 @@ function AnalysisContent() {
           <div className="container mx-auto px-4 py-8">
             <div className="max-w-4xl mx-auto">
               {/* Header */}
-              <motion.div 
+              <motion.div
                 className="text-center mb-8"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                <motion.div 
+                <motion.div
                   className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full mb-4 shadow-lg"
                   whileHover={{ scale: 1.1, rotate: 360 }}
                   transition={{ duration: 0.6 }}
@@ -216,7 +218,7 @@ function AnalysisContent() {
                     <Target className="w-4 h-4 text-purple-600" />
                   </div>
                 </motion.div>
-                <motion.h1 
+                <motion.h1
                   className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mb-4 animate-gradient-shine"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -224,7 +226,7 @@ function AnalysisContent() {
                 >
                   ATS Optimization Analysis
                 </motion.h1>
-                <motion.p 
+                <motion.p
                   className="text-gray-300 max-w-2xl mx-auto text-lg"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -233,7 +235,7 @@ function AnalysisContent() {
                   Analyze your resume against Applicant Tracking Systems to improve your chances of getting hired.
                 </motion.p>
                 {isPro && (
-                  <motion.div 
+                  <motion.div
                     className="inline-block px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-bold rounded-full mt-2 shadow-lg"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -246,7 +248,7 @@ function AnalysisContent() {
               </motion.div>
 
               {/* Form */}
-              <motion.div 
+              <motion.div
                 className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 shadow-lg backdrop-blur-sm"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -296,22 +298,33 @@ function AnalysisContent() {
                     </p>
                   </motion.div>
 
-                  <motion.div 
+                  <motion.div
                     className="flex flex-col sm:flex-row gap-4 justify-center"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 1.4 }}
                   >
-                    <motion.button
-                      type="submit"
-                      disabled={!formResume.trim() || !formJob.trim()}
-                      className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-purple-500/25 flex items-center justify-center gap-2"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                    <CreditProtectedAction
+                      action="ats_analysis"
+                      requiredCredits={1}
+                      showUpgradePrompt={true}
                     >
-                      <Sparkles className="w-5 h-5" />
-                      Analyze Resume
-                    </motion.button>
+                      <motion.button
+                        type="submit"
+                        disabled={!formResume.trim() || !formJob.trim()}
+                        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-purple-500/25 flex items-center justify-center gap-2"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Sparkles className="w-5 h-5" />
+                        Analyze Resume
+                        <FeatureAvailabilityIndicator
+                          featureName="atsAnalysis"
+                          size="small"
+                          className="ml-2"
+                        />
+                      </motion.button>
+                    </CreditProtectedAction>
                     <motion.div
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -342,7 +355,7 @@ function AnalysisContent() {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
-      
+
       {/* Floating Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -388,7 +401,7 @@ function AnalysisContent() {
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto space-y-8">
             {/* Header */}
-            <motion.div 
+            <motion.div
               className="text-center space-y-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -421,7 +434,7 @@ function AnalysisContent() {
             </motion.div>
 
             {/* Edit Data Button */}
-            <motion.div 
+            <motion.div
               className="text-center pt-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
