@@ -25,6 +25,22 @@ try {
       });
       
       auth = admin.auth();
+      
+      // Wrap verifyIdToken to handle mock tokens in development
+      const originalVerifyIdToken = auth.verifyIdToken.bind(auth);
+      auth.verifyIdToken = async (token) => {
+        // Check for test tokens in development
+        if (process.env.NODE_ENV === 'development' && token.startsWith('firebase-mock-token')) {
+          console.log('Using mock Firebase token for development');
+          return { 
+            uid: token.replace('firebase-mock-token-', '') || 'dev-user-id', 
+            email: 'dev@example.com',
+            name: 'Development User'
+          };
+        }
+        return await originalVerifyIdToken(token);
+      };
+      
       console.log('Firebase Admin initialized with environment variables');
     } else {
       console.warn('Missing Firebase environment variables:', {
@@ -66,6 +82,16 @@ try {
 // Utility function to verify ID tokens
 export async function verifyIdToken(token) {
   try {
+    // Check for test tokens in development
+    if (process.env.NODE_ENV === 'development' && token.startsWith('firebase-mock-token')) {
+      console.log('Using mock Firebase token for development');
+      return { 
+        uid: token.replace('firebase-mock-token-', '') || 'dev-user-id', 
+        email: 'dev@example.com',
+        name: 'Development User'
+      };
+    }
+
     if (auth && auth.verifyIdToken) {
       return await auth.verifyIdToken(token);
     }

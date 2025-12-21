@@ -175,8 +175,12 @@ export default function DashboardPage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        dispatch(setParsedData(data.parsedData));
+        const result = await response.json();
+        const parsed = result.data || result.parsedData || null;
+        if (!parsed) {
+          throw new Error('Invalid response from parse API');
+        }
+        dispatch(setParsedData(parsed));
         showToast.success('Resume reparsed successfully');
       } else {
         throw new Error('Failed to reparse resume');
@@ -263,15 +267,23 @@ export default function DashboardPage() {
       const data = await response.json();
       console.log('Response data:', data);
 
-      if (response.ok && data.text) {
-        dispatch(setResumeText(data.text));
-        if (data.parsedData) {
-          dispatch(setParsedData(data.parsedData));
+      if (response.ok && data?.success && data?.data) {
+        const { text, parsedData } = data.data;
+        if (text) {
+          dispatch(setResumeText(text));
+        }
+        if (parsedData) {
+          dispatch(setParsedData(parsedData));
         }
         showToast.success(`Successfully uploaded ${file.name}`);
         await fetchUserData(currentUser);
       } else {
-        showToast.error(data.error || 'Failed to extract text from file');
+        const errorMessage =
+          data?.error?.message ||
+          data?.error ||
+          data?.message ||
+          'Failed to extract text from file';
+        showToast.error(errorMessage);
       }
     } catch (error) {
       console.error('Upload error:', error);

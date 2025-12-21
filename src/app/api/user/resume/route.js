@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../../lib/firebase-admin';
-import { UserService } from '../../../../lib/user-service';
+import { UserService } from '@/lib/user-service';
 
 export async function DELETE(request) {
   try {

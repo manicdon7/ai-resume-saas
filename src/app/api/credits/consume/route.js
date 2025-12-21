@@ -20,39 +20,49 @@ export async function POST(request) {
       );
     }
 
-    // For multiple credits, we need to consume them one by one
-    let totalConsumed = 0;
-    let transactions = [];
-    let finalResult = null;
+    // First, validate user has enough credits for the entire operation
+    const validationResult = await CreditsService.validateCreditsForAction(authHeader, action, amount);
+    
+    if (!validationResult.success) {
+      return NextResponse.json({
+        error: validationResult.error,
+        credits: validationResult.credits,
+        isPro: validationResult.isPro,
+        action,
+        requiredCredits: amount
+      }, { status: validationResult.statusCode });
+    }
 
-    for (let i = 0; i < amount; i++) {
-      const result = await CreditsService.checkAndConsumeCredit(authHeader, action);
-      
-      if (!result.success) {
-        // If we fail partway through, we need to handle partial consumption
-        return NextResponse.json({
-          error: result.error,
-          credits: result.credits,
-          isPro: result.isPro,
-          action: result.action,
-          partialConsumption: totalConsumed > 0 ? totalConsumed : undefined
-        }, { status: result.statusCode });
-      }
+    // If user is pro, no need to consume credits
+    if (validationResult.isPro) {
+      return NextResponse.json({
+        success: true,
+        credits: 'unlimited',
+        isPro: true,
+        consumed: 0,
+        action,
+        message: 'Pro user - no credits consumed'
+      });
+    }
 
-      totalConsumed++;
-      if (result.transaction) {
-        transactions.push(result.transaction);
-      }
-      finalResult = result;
+    // Consume all credits atomically
+    const consumeResult = await CreditsService.consumeCreditsAtomic(authHeader, action, amount);
+    
+    if (!consumeResult.success) {
+      return NextResponse.json({
+        error: consumeResult.error,
+        credits: consumeResult.credits,
+        isPro: consumeResult.isPro,
+        action
+      }, { status: consumeResult.statusCode });
     }
 
     return NextResponse.json({
       success: true,
-      credits: finalResult.credits,
-      isPro: finalResult.isPro,
-      consumed: totalConsumed,
-      transactions,
-      transaction: transactions[transactions.length - 1], // Latest transaction for compatibility
+      credits: consumeResult.credits,
+      isPro: consumeResult.isPro,
+      consumed: amount,
+      transaction: consumeResult.transaction,
       action
     });
   } catch (error) {

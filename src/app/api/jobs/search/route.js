@@ -1,29 +1,50 @@
 import { NextResponse } from 'next/server';
+import { withErrorHandler, validateRequired, sanitizeInput, checkRateLimit, APIError, ERROR_CODES } from '@/lib/api-error-handler';
 
-export async function POST(request) {
+async function jobSearchHandler(request) {
   try {
-    const { query, page = 1, limit = 10, location = '', jobType = '', experience = '' } = await request.json();
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    
+    // Rate limiting
+    checkRateLimit(`job-search:${clientIp}`, 50, 15 * 60 * 1000); // 50 requests per 15 minutes
 
-    if (!query) {
-      return NextResponse.json(
-        { error: 'Search query is required' },
-        { status: 400 }
-      );
+    const body = await request.json();
+    const { query, page = 1, limit = 10, location = '', jobType = '', experience = '' } = body;
+
+    // Validate required fields
+    validateRequired(body, ['query']);
+
+    // Sanitize and validate inputs
+    const sanitizedQuery = sanitizeInput(query, 200);
+    const sanitizedLocation = sanitizeInput(location, 100);
+    const sanitizedJobType = sanitizeInput(jobType, 50);
+    const sanitizedExperience = sanitizeInput(experience, 50);
+
+    if (sanitizedQuery.length < 2) {
+      throw new APIError('Search query must be at least 2 characters long', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    if (page < 1 || page > 100) {
+      throw new APIError('Page must be between 1 and 100', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    if (limit < 1 || limit > 50) {
+      throw new APIError('Limit must be between 1 and 50', 400, ERROR_CODES.INVALID_INPUT);
     }
 
     // Build comprehensive search query
-    let searchQuery = `${query} jobs`;
+    let searchQuery = `${sanitizedQuery} jobs`;
 
-    if (location) {
-      searchQuery += ` in ${location}`;
+    if (sanitizedLocation) {
+      searchQuery += ` in ${sanitizedLocation}`;
     }
 
-    if (jobType) {
-      searchQuery += ` ${jobType}`;
+    if (sanitizedJobType) {
+      searchQuery += ` ${sanitizedJobType}`;
     }
 
-    if (experience) {
-      searchQuery += ` ${experience} level`;
+    if (sanitizedExperience) {
+      searchQuery += ` ${sanitizedExperience} level`;
     }
 
     // Add job-specific keywords to improve results
@@ -77,20 +98,23 @@ export async function POST(request) {
     if (jobs.length === 0) {
       return NextResponse.json({
         success: true,
-        jobs: [],
-        pagination: {
-          currentPage: 1,
-          totalPages: 0,
-          totalJobs: 0,
-          hasNextPage: false,
-          hasPrevPage: false
+        data: {
+          jobs: [],
+          pagination: {
+            currentPage: 1,
+            totalPages: 0,
+            totalJobs: 0,
+            hasNextPage: false,
+            hasPrevPage: false
+          },
+          searchQuery: sanitizedQuery,
+          metadata: {
+            searchTime: Date.now(),
+            resultsFound: 0
+          }
         },
-        searchQuery,
-        metadata: {
-          searchTime: Date.now(),
-          resultsFound: 0
-        },
-        message: 'No jobs found for your search criteria. Try different keywords or filters.'
+        message: 'No jobs found for your search criteria. Try different keywords or filters.',
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -107,39 +131,40 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      jobs: paginatedJobs,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(jobs.length / limit),
-        totalJobs: jobs.length,
-        hasNextPage: endIndex < jobs.length,
-        hasPrevPage: page > 1
-      },
-      searchQuery,
-      metadata: {
-        searchTime: Date.now(),
-        resultsFound: jobs.length,
-        webSearchData: {
-          sourcesFound: searchData.sources_used?.length || 0,
-          answerLength: searchData.answer?.length || 0
+      data: {
+        jobs: paginatedJobs,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(jobs.length / limit),
+          totalJobs: jobs.length,
+          hasNextPage: endIndex < jobs.length,
+          hasPrevPage: page > 1
+        },
+        searchQuery: sanitizedQuery,
+        metadata: {
+          searchTime: Date.now(),
+          resultsFound: jobs.length,
+          webSearchData: {
+            sourcesFound: searchData.sources_used?.length || 0,
+            answerLength: searchData.answer?.length || 0
+          }
         }
-      }
+      },
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
     console.error('❌ Job search error:', error);
     
-    // Return error instead of fallback data
-    return NextResponse.json(
-      { 
-        error: 'Job search failed', 
-        details: error.message,
-        success: false
-      },
-      { status: 500 }
-    );
+    if (error.message?.includes('fetch')) {
+      throw new APIError('External service temporarily unavailable', 503, ERROR_CODES.SERVICE_UNAVAILABLE);
+    }
+    
+    throw error;
   }
 }
+
+export const POST = withErrorHandler(jobSearchHandler);
 
 // Process web search results to extract job information
 function processWebSearchResults(searchData, originalQuery, filterLocation, filterJobType, filterExperience) {
@@ -200,7 +225,6 @@ function createJobFromSearchData(sourceUrl, answer, index, originalQuery, filter
   try {
     // Extract site information
     let siteName = 'Job Board';
-    let company = 'Tech Company';
     
     if (sourceUrl.includes('linkedin.com')) {
       siteName = 'LinkedIn';
@@ -214,18 +238,6 @@ function createJobFromSearchData(sourceUrl, answer, index, originalQuery, filter
       siteName = 'ZipRecruiter';
     } else if (sourceUrl.includes('careers') || sourceUrl.includes('jobs')) {
       siteName = 'Company Careers';
-      // Try to extract company from domain
-      try {
-        const domain = new URL(sourceUrl).hostname;
-        const domainParts = domain.split('.');
-        if (domainParts.length > 1) {
-          company = domainParts[domainParts.length - 2]
-            .charAt(0).toUpperCase() + 
-            domainParts[domainParts.length - 2].slice(1);
-        }
-      } catch (e) {
-        company = 'Direct Hire Company';
-      }
     }
 
     // Generate job data based on search context

@@ -1,31 +1,24 @@
 import { NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { CreditsService } from '../../../lib/credits-service';
+import { withErrorHandler, APIError, ERROR_CODES } from '@/lib/api-error-handler';
+import { creditProtectedMiddleware } from '@/lib/api-middleware';
 
-export async function POST(request) {
-  try {
-    // --- Credit System Start ---
-    const creditResult = await CreditsService.middleware(request, CreditsService.CREDIT_ACTIONS.PDF_GENERATION);
-    
-    if (creditResult.response) {
-      return creditResult.response;
-    }
-    
-    const { user, isPro, transaction } = creditResult;
-    // --- Credit System End ---
-    const body = await request.json();
-    const resumeContent = body.content;
-    const jobDescription = body.jobDescription;
-    const name = body.name;
+async function generatePdfHandler(request) {
+  const body = await request.json();
+  const resumeContent = body.content;
+  const jobDescription = body.jobDescription;
+  const name = body.name;
 
-    if (!resumeContent || !name) {
-      return NextResponse.json(
-        { error: 'Resume content and name are required' },
-        { status: 400 }
-      );
-    }
+  if (!resumeContent || !name) {
+    throw new APIError(
+      'Resume content and name are required',
+      400,
+      ERROR_CODES.MISSING_REQUIRED_FIELD
+    );
+  }
 
-    const finalJobDescription = jobDescription || 'General position application';
+  const finalJobDescription = jobDescription || 'General position application';
 
     // Generate dynamic cover letter using Pollinations.ai
     let dynamicCoverLetter = '';
@@ -279,13 +272,9 @@ I am excited about the possibility of bringing my expertise to your team and wou
         'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
-
-  } catch (error) {
-    console.error('PDF generation error:', error);
-    
-    return NextResponse.json({
-      error: 'Error generating cover letter',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'PDF generation failed'
-    }, { status: 500 });
-  }
 }
+
+export const POST = creditProtectedMiddleware(
+  CreditsService.CREDIT_ACTIONS.PDF_GENERATION, 
+  1
+)(withErrorHandler(generatePdfHandler));

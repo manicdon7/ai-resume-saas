@@ -1,20 +1,21 @@
 import { UserService } from '../../lib/user-service';
-import { extractKeywords, matchResumeWithJob } from './resume-parser';
+import { CreditsService } from './credits-service';
 
 /**
- * Resume Management Service
- * Handles all resume-related operations including save, delete, parse, and sync
+ * Enhanced Resume Management Service
+ * Handles all resume-related operations with credit integration
  */
 export class ResumeService {
   
   /**
-   * Save resume data to MongoDB and update Redux state
+   * Save resume data with credit consumption for parsing
    * @param {string} userId - User ID
    * @param {Object} resumeData - Resume data to save
    * @param {Function} dispatch - Redux dispatch function
-   * @returns {Promise<Object>} Saved resume data
+   * @param {string} authToken - Auth token for credit operations
+   * @returns {Promise<Object>} Saved resume data with credit info
    */
-  static async saveResume(userId, resumeData, dispatch) {
+  static async saveResumeWithCredits(userId, resumeData, dispatch, authToken) {
     try {
       // Validate input data
       const validation = this.validateResumeData(resumeData);
@@ -29,9 +30,26 @@ export class ResumeService {
         dispatch(setSyncStatus('pending'));
       }
 
-      // Parse resume text if provided
       let parsedData = resumeData.parsedData || {};
-      if (resumeData.resumeText && !resumeData.parsedData) {
+      let creditResult = null;
+
+      // If we need to parse the resume text, consume credits
+      if (resumeData.resumeText && !resumeData.parsedData && authToken) {
+        // Check and consume credits for parsing
+        creditResult = await CreditsService.consumeActionCredits(
+          `Bearer ${authToken}`, 
+          CreditsService.CREDIT_ACTIONS.RESUME_PARSE,
+          { 
+            operation: 'resume_parsing',
+            fileName: resumeData.fileName 
+          }
+        );
+
+        if (!creditResult.success) {
+          throw new Error(creditResult.error);
+        }
+
+        // Parse resume text
         parsedData = await this.parseResumeText(resumeData.resumeText);
       }
 
@@ -49,6 +67,7 @@ export class ResumeService {
           pageCount: resumeData.metadata?.pageCount || 1,
           lastParsed: new Date().toISOString(),
           parseVersion: '1.0',
+          creditConsumed: creditResult ? creditResult.consumed : 0,
           ...resumeData.metadata
         }
       };
@@ -63,7 +82,6 @@ export class ResumeService {
           setParsedData, 
           setFileMetadata, 
           updateMetadata,
-          incrementVersion,
           setSyncStatus 
         } = await import('../store/slices/resumeSlice');
         
@@ -82,15 +100,23 @@ export class ResumeService {
       await UserService.addUserActivity(
         userId, 
         'resume_save', 
-        'Resume saved successfully',
+        'Resume saved and parsed successfully',
         {
           fileName: resumeToSave.fileName,
           version: resumeToSave.version,
-          wordCount: resumeToSave.metadata.wordCount
+          wordCount: resumeToSave.metadata.wordCount,
+          creditConsumed: creditResult ? creditResult.consumed : 0
         }
       );
 
-      return savedResume;
+      return {
+        resume: savedResume,
+        creditInfo: creditResult ? {
+          consumed: creditResult.consumed,
+          remaining: creditResult.credits,
+          isPro: creditResult.isPro
+        } : null
+      };
 
     } catch (error) {
       console.error('Error saving resume:', error);
@@ -454,5 +480,252 @@ export class ResumeService {
       const { clearResume } = require('../store/slices/resumeSlice');
       dispatch(clearResume());
     }
+  }
+
+  /**
+   * Get resume data with user context
+   * @param {string} userId - User ID
+   * @param {boolean} includeAnalysis - Whether to include analysis data
+   * @returns {Promise<Object|null>} Resume data with context
+   */
+  static async getResumeWithContext(userId, includeAnalysis = false) {
+    try {
+      const resumeData = await UserService.getResumeData(userId);
+      
+      if (!resumeData) {
+        return null;
+      }
+
+      const result = {
+        ...resumeData,
+        hasResume: true,
+        isComplete: this.isResumeComplete(resumeData.parsedData),
+        lastModified: resumeData.updatedAt,
+        uploadedAt: resumeData.createdAt
+      };
+
+      if (includeAnalysis && resumeData.parsedData) {
+        result.analysis = {
+          skillsCount: resumeData.parsedData.skills?.length || 0,
+          experienceYears: this.calculateExperienceYears(resumeData.parsedData.experience),
+          completenessScore: this.calculateCompletenessScore(resumeData.parsedData),
+          suggestions: this.generateImprovementSuggestions(resumeData.parsedData)
+        };
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error getting resume with context:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if resume data is complete
+   * @param {Object} parsedData - Parsed resume data
+   * @returns {boolean} Whether resume is complete
+   */
+  static isResumeComplete(parsedData) {
+    if (!parsedData) return false;
+    
+    const requiredFields = ['name', 'email', 'phone'];
+    const hasRequiredFields = requiredFields.every(field => 
+      parsedData[field] && parsedData[field].trim().length > 0
+    );
+    
+    const hasExperience = parsedData.experience && parsedData.experience.length > 0;
+    const hasSkills = parsedData.skills && parsedData.skills.length > 0;
+    
+    return hasRequiredFields && hasExperience && hasSkills;
+  }
+
+  /**
+   * Calculate years of experience from experience array
+   * @param {Array} experience - Experience array
+   * @returns {number} Years of experience
+   */
+  static calculateExperienceYears(experience) {
+    if (!experience || !Array.isArray(experience)) return 0;
+    
+    // Simple calculation - count unique companies/roles
+    return Math.min(experience.length * 1.5, 15); // Cap at 15 years
+  }
+
+  /**
+   * Calculate completeness score for resume
+   * @param {Object} parsedData - Parsed resume data
+   * @returns {number} Completeness score (0-100)
+   */
+  static calculateCompletenessScore(parsedData) {
+    if (!parsedData) return 0;
+    
+    let score = 0;
+    const maxScore = 100;
+    
+    // Basic info (40 points)
+    if (parsedData.name) score += 10;
+    if (parsedData.email) score += 10;
+    if (parsedData.phone) score += 10;
+    if (parsedData.location) score += 10;
+    
+    // Professional info (40 points)
+    if (parsedData.summary && parsedData.summary.length > 50) score += 15;
+    if (parsedData.experience && parsedData.experience.length > 0) score += 15;
+    if (parsedData.skills && parsedData.skills.length >= 5) score += 10;
+    
+    // Additional info (20 points)
+    if (parsedData.education && parsedData.education.length > 0) score += 10;
+    if (parsedData.certifications && parsedData.certifications.length > 0) score += 10;
+    
+    return Math.min(score, maxScore);
+  }
+
+  /**
+   * Generate improvement suggestions for resume
+   * @param {Object} parsedData - Parsed resume data
+   * @returns {Array} Array of suggestions
+   */
+  static generateImprovementSuggestions(parsedData) {
+    const suggestions = [];
+    
+    if (!parsedData) {
+      suggestions.push('Upload a resume to get personalized suggestions');
+      return suggestions;
+    }
+    
+    if (!parsedData.name) {
+      suggestions.push('Add your full name to the resume');
+    }
+    
+    if (!parsedData.email) {
+      suggestions.push('Include a professional email address');
+    }
+    
+    if (!parsedData.phone) {
+      suggestions.push('Add your phone number for contact');
+    }
+    
+    if (!parsedData.summary || parsedData.summary.length < 50) {
+      suggestions.push('Add a professional summary (2-3 sentences)');
+    }
+    
+    if (!parsedData.skills || parsedData.skills.length < 5) {
+      suggestions.push('List more relevant technical and soft skills');
+    }
+    
+    if (!parsedData.experience || parsedData.experience.length === 0) {
+      suggestions.push('Add your work experience with specific achievements');
+    }
+    
+    if (!parsedData.education || parsedData.education.length === 0) {
+      suggestions.push('Include your educational background');
+    }
+    
+    if (parsedData.skills && parsedData.skills.length > 0) {
+      const techSkills = parsedData.skills.filter(skill => 
+        ['javascript', 'python', 'react', 'node', 'sql', 'aws', 'docker'].some(tech => 
+          skill.toLowerCase().includes(tech)
+        )
+      );
+      
+      if (techSkills.length < 3) {
+        suggestions.push('Add more technical skills relevant to your target role');
+      }
+    }
+    
+    return suggestions;
+  }
+
+  /**
+   * Extract keywords for job matching
+   * @param {string} text - Resume text
+   * @returns {Array} Array of keywords
+   */
+  static extractKeywords(text) {
+    if (!text) return [];
+    
+    const skillKeywords = [
+      // Programming Languages
+      'javascript', 'python', 'java', 'typescript', 'c++', 'c#', 'php', 'ruby', 'go', 'rust', 'swift', 'kotlin',
+      
+      // Frameworks & Libraries
+      'react', 'angular', 'vue', 'node.js', 'express', 'django', 'flask', 'spring', 'laravel', 'rails',
+      
+      // Databases
+      'mysql', 'postgresql', 'mongodb', 'redis', 'elasticsearch', 'sqlite', 'oracle', 'sql server',
+      
+      // Cloud & DevOps
+      'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins', 'gitlab', 'github', 'ci/cd', 'terraform',
+      
+      // Tools & Technologies
+      'git', 'jira', 'confluence', 'slack', 'figma', 'sketch', 'photoshop', 'illustrator',
+      
+      // Methodologies
+      'agile', 'scrum', 'kanban', 'devops', 'tdd', 'bdd', 'microservices', 'rest api', 'graphql',
+      
+      // Soft Skills
+      'leadership', 'communication', 'problem solving', 'teamwork', 'project management', 'analytical thinking'
+    ];
+    
+    const textLower = text.toLowerCase();
+    return skillKeywords.filter(skill => textLower.includes(skill.toLowerCase()));
+  }
+
+  /**
+   * Match resume with job requirements
+   * @param {Object} resumeData - Resume data
+   * @param {string} jobDescription - Job description text
+   * @returns {Object} Match analysis
+   */
+  static analyzeJobMatch(resumeData, jobDescription) {
+    if (!resumeData || !jobDescription) {
+      return {
+        matchScore: 0,
+        matchedSkills: [],
+        missingSkills: [],
+        recommendations: ['Please provide both resume and job description for analysis']
+      };
+    }
+    
+    const resumeSkills = resumeData.parsedData?.skills || [];
+    const jobSkills = this.extractKeywords(jobDescription);
+    
+    const matchedSkills = resumeSkills.filter(skill => 
+      jobSkills.some(jobSkill => 
+        skill.toLowerCase().includes(jobSkill.toLowerCase()) ||
+        jobSkill.toLowerCase().includes(skill.toLowerCase())
+      )
+    );
+    
+    const missingSkills = jobSkills.filter(jobSkill => 
+      !resumeSkills.some(skill => 
+        skill.toLowerCase().includes(jobSkill.toLowerCase()) ||
+        jobSkill.toLowerCase().includes(skill.toLowerCase())
+      )
+    );
+    
+    const matchScore = jobSkills.length > 0 ? 
+      Math.round((matchedSkills.length / jobSkills.length) * 100) : 0;
+    
+    const recommendations = [];
+    
+    if (missingSkills.length > 0) {
+      recommendations.push(`Consider adding these skills: ${missingSkills.slice(0, 5).join(', ')}`);
+    }
+    
+    if (matchScore < 50) {
+      recommendations.push('Consider tailoring your resume more closely to this job description');
+    }
+    
+    if (!resumeData.parsedData?.summary) {
+      recommendations.push('Add a professional summary that highlights relevant experience');
+    }
+    
+    return {
+      matchScore,
+      matchedSkills,
+      missingSkills: missingSkills.slice(0, 10), // Limit to top 10
+      recommendations
+    };
   }
 }

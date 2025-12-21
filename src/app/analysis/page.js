@@ -7,8 +7,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import ATSOptimizer from '../../components/ATSOptimizer';
 import Navbar from '@/components/Navbar';
-import CreditProtectedAction from '@/components/CreditProtectedAction';
-import FeatureAvailabilityIndicator from '@/components/FeatureAvailabilityIndicator';
 import Link from 'next/link';
 import { ArrowLeft, Target, Sparkles, FileText, Briefcase } from 'lucide-react';
 
@@ -249,12 +247,16 @@ function AnalysisContent() {
 
               {/* Form */}
               <motion.div
-                className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 shadow-lg backdrop-blur-sm"
+                className="bg-gray-900/20 backdrop-blur-xl border border-gray-600/30 rounded-3xl p-8 shadow-2xl shadow-purple-900/10 relative overflow-hidden"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                whileHover={{ scale: 1.01 }}
+                whileHover={{ scale: 1.01, boxShadow: '0 25px 50px -12px rgba(139, 92, 246, 0.15)' }}
               >
+                {/* Glassmorphism overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-white/1 rounded-3xl pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 rounded-3xl pointer-events-none" />
+                <div className="relative z-10">
                 <form onSubmit={handleSubmitForm} className="space-y-6">
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
@@ -268,7 +270,7 @@ function AnalysisContent() {
                     <textarea
                       value={formResume}
                       onChange={(e) => setFormResume(e.target.value)}
-                      className="w-full h-48 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
+                      className="w-full h-48 px-4 py-3 bg-gray-800/30 backdrop-blur-md border border-gray-500/30 rounded-xl text-white placeholder-gray-400 resize-vertical focus:ring-2 focus:ring-purple-400/50 focus:border-purple-400/50 focus:bg-gray-800/50 transition-all duration-300 shadow-lg shadow-black/20"
                       placeholder="Paste your resume content here..."
                       required
                     />
@@ -289,7 +291,7 @@ function AnalysisContent() {
                     <textarea
                       value={formJob}
                       onChange={(e) => setFormJob(e.target.value)}
-                      className="w-full h-48 px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all"
+                      className="w-full h-48 px-4 py-3 bg-gray-800/30 backdrop-blur-md border border-gray-500/30 rounded-xl text-white placeholder-gray-400 resize-vertical focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 focus:bg-gray-800/50 transition-all duration-300 shadow-lg shadow-black/20"
                       placeholder="Paste the job description here..."
                       required
                     />
@@ -304,34 +306,23 @@ function AnalysisContent() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 1.4 }}
                   >
-                    <CreditProtectedAction
-                      action="ats_analysis"
-                      requiredCredits={1}
-                      showUpgradePrompt={true}
+                    <motion.button
+                      type="submit"
+                      disabled={!formResume.trim() || !formJob.trim()}
+                      className="px-8 py-3 bg-gradient-to-r from-purple-600/80 to-blue-600/80 backdrop-blur-lg text-white rounded-xl hover:from-purple-700/90 hover:to-blue-700/90 transition-all duration-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:shadow-purple-500/30 flex items-center justify-center gap-2 border border-purple-400/20"
+                      whileHover={{ scale: 1.02, boxShadow: '0 20px 40px -12px rgba(139, 92, 246, 0.4)' }}
+                      whileTap={{ scale: 0.98 }}
                     >
-                      <motion.button
-                        type="submit"
-                        disabled={!formResume.trim() || !formJob.trim()}
-                        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-purple-500/25 flex items-center justify-center gap-2"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Sparkles className="w-5 h-5" />
-                        Analyze Resume
-                        <FeatureAvailabilityIndicator
-                          featureName="atsAnalysis"
-                          size="small"
-                          className="ml-2"
-                        />
-                      </motion.button>
-                    </CreditProtectedAction>
+                      <Sparkles className="w-5 h-5" />
+                      Analyze Resume
+                    </motion.button>
                     <motion.div
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <Link
                         href="/"
-                        className="px-8 py-3 border border-gray-600 text-gray-300 rounded-xl hover:bg-gray-700/50 hover:border-purple-400/50 transition-colors font-medium text-center flex items-center justify-center gap-2"
+                        className="px-8 py-3 border border-gray-500/30 backdrop-blur-lg text-gray-300 rounded-xl hover:bg-gray-700/30 hover:border-purple-400/50 transition-all duration-300 font-medium text-center flex items-center justify-center gap-2 shadow-lg shadow-black/20"
                       >
                         <ArrowLeft className="w-4 h-4" />
                         Cancel
@@ -339,6 +330,7 @@ function AnalysisContent() {
                     </motion.div>
                   </motion.div>
                 </form>
+                </div>
               </motion.div>
             </div>
           </div>

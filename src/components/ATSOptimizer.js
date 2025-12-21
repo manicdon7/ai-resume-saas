@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { CheckCircle, TrendingUp, AlertTriangle, X, RotateCcw, Star, Target, Square, Diamond } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import ATSSpeedometer from './ATSSpeedometer';
@@ -14,9 +15,11 @@ const ATSOptimizer = ({
   className = "" 
 }) => {
   const [analysisData, setAnalysisData] = useState(null);
+  const [roleFitData, setRoleFitData] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState('ats'); // 'ats' or 'rolefit'
 
   // Perform ATS analysis with API call
   const performATSAnalysis = async () => {
@@ -31,28 +34,34 @@ const ATSOptimizer = ({
       }
       
       const token = await currentUser.getIdToken();
-      const response = await fetch('/api/ats-analysis', {
+      const response = await fetch('/api/analysis/ats-check', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          resumeContent,
+          resumeText: resumeContent,
           jobDescription
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Analysis failed');
+      const json = await response.json();
+
+      if (!response.ok || !json.success || !json.data?.analysis) {
+        const message =
+          json?.error?.message ||
+          json?.error ||
+          json?.message ||
+          'Analysis failed';
+        throw new Error(message);
       }
 
-      const results = await response.json();
-      setAnalysisData(results);
+      const analysis = json.data.analysis;
+      setAnalysisData(analysis);
       
       if (onAnalysisComplete) {
-        onAnalysisComplete(results);
+        onAnalysisComplete(analysis);
       }
     } catch (err) {
       setError(err.message || 'Failed to analyze resume. Please try again.');
@@ -62,11 +71,64 @@ const ATSOptimizer = ({
     }
   };
 
+  // Perform Role-Fit analysis with API call
+  const performRoleFitAnalysis = async () => {
+    setAnalyzing(true);
+    setError(null);
+    
+    try {
+      // Get Firebase auth token
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Please sign in to perform analysis');
+      }
+      
+      const token = await currentUser.getIdToken();
+      const response = await fetch('/api/analysis/role-fit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          resumeText: resumeContent,
+          jobDescription
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Role-fit analysis failed');
+      }
+
+      const results = await response.json();
+      setRoleFitData(results.data.analysis);
+      
+      if (onAnalysisComplete) {
+        onAnalysisComplete(results.data.analysis);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to analyze role fit. Please try again.');
+      console.error('Role-Fit Analysis error:', err);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  // Perform analysis based on mode
+  const performAnalysis = () => {
+    if (analysisMode === 'ats') {
+      performATSAnalysis();
+    } else {
+      performRoleFitAnalysis();
+    }
+  };
+
   useEffect(() => {
     if (resumeContent && jobDescription) {
-      performATSAnalysis();
+      performAnalysis();
     }
-  }, [resumeContent, jobDescription, performATSAnalysis]);
+  }, [resumeContent, jobDescription, analysisMode]);
 
   const getInsightColors = (type) => {
     switch (type) {
@@ -153,7 +215,10 @@ const ATSOptimizer = ({
     );
   }
 
-  if (!analysisData) {
+  // Show component if we have any data or are in the initial state
+  const hasData = (analysisMode === 'ats' && analysisData) || (analysisMode === 'rolefit' && roleFitData);
+  
+  if (!hasData && !analyzing && !error) {
     return null;
   }
 
@@ -167,9 +232,14 @@ const ATSOptimizer = ({
               <div className="w-4 h-4 bg-primary rounded-full"></div>
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-foreground">ATS Optimization Analysis</h2>
+          <h2 className="text-3xl font-bold text-foreground">
+            {analysisMode === 'ats' ? 'ATS Optimization Analysis' : 'Role-Fit Analysis'}
+          </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Comprehensive analysis of your resume's compatibility with Applicant Tracking Systems
+            {analysisMode === 'ats' 
+              ? 'Comprehensive analysis of your resume\'s compatibility with Applicant Tracking Systems'
+              : 'Detailed analysis of how well your resume matches this specific job role'
+            }
           </p>
           {isPro && (
             <div className="inline-block px-3 py-1 bg-gradient-to-r from-primary to-accent text-primary-foreground text-xs font-bold rounded-full">
@@ -178,49 +248,131 @@ const ATSOptimizer = ({
           )}
         </div>
 
-        {/* Overall Score */}
-        <div className="text-center">
-          <ATSSpeedometer
-            label="Overall ATS Score"
-            score={analysisData.overallScore}
-            color="auto"
-            icon={Star}
-            size="large"
-            description="Your resume's overall optimization score"
-          />
+        {/* Analysis Mode Toggle */}
+        <div className="flex justify-center">
+          <div className="bg-gray-800/50 backdrop-blur-md border border-gray-700/50 rounded-2xl p-2 inline-flex gap-2">
+            <motion.button
+              onClick={() => setAnalysisMode('ats')}
+              className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                analysisMode === 'ats'
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Target className="w-4 h-4 inline mr-2" />
+              ATS Analysis
+            </motion.button>
+            <motion.button
+              onClick={() => setAnalysisMode('rolefit')}
+              className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                analysisMode === 'rolefit'
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <CheckCircle className="w-4 h-4 inline mr-2" />
+              Role-Fit Analysis
+            </motion.button>
+          </div>
         </div>
 
-        {/* Detailed Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <ATSSpeedometer
-            label="ATS Compatibility"
-            score={analysisData.atsCompatibility}
-            color="auto"
-            icon="◉"
-            description="Format & structure compatibility"
-          />
-          <ATSSpeedometer
-            label="Keyword Match"
-            score={analysisData.keywordMatch}
-            color="auto"
-            icon={Diamond}
-            description="Job-relevant keywords found"
-          />
-          <ATSSpeedometer
-            label="Formatting"
-            score={analysisData.formatting}
-            color="auto"
-            icon="▢"
-            description="Clean, readable format"
-          />
-          <ATSSpeedometer
-            label="Readability"
-            score={analysisData.readability}
-            color="auto"
-            icon="◈"
-            description="Content clarity & flow"
-          />
-        </div>
+        {/* Overall Score - ATS Mode */}
+        {analysisMode === 'ats' && (
+          <div className="text-center">
+            <ATSSpeedometer
+              label="Overall ATS Score"
+              score={analysisData.overallScore}
+              color="auto"
+              icon="★"
+              size="large"
+              description="Your resume's overall optimization score"
+            />
+          </div>
+        )}
+
+        {/* Overall Score - Role-Fit Mode */}
+        {analysisMode === 'rolefit' && roleFitData && (
+          <div className="text-center">
+            <ATSSpeedometer
+              label="Overall Role-Fit Score"
+              score={roleFitData.overallFitScore}
+              color="auto"
+              icon="🎯"
+              size="large"
+              description="How well you match this specific role"
+            />
+            <div className="mt-4 max-w-2xl mx-auto">
+              <p className="text-sm text-gray-300 bg-gray-800/30 backdrop-blur-sm rounded-lg p-4 border border-gray-700/30">
+                {roleFitData.summary}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Detailed Metrics - ATS Mode */}
+        {analysisMode === 'ats' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <ATSSpeedometer
+              label="ATS Compatibility"
+              score={analysisData.atsCompatibility}
+              color="auto"
+              icon="◉"
+              description="Format & structure compatibility"
+            />
+            <ATSSpeedometer
+              label="Keyword Match"
+              score={analysisData.keywordMatch}
+              color="auto"
+              icon="◆"
+              description="Job-relevant keywords found"
+            />
+            <ATSSpeedometer
+              label="Formatting"
+              score={analysisData.formatting}
+              color="auto"
+              icon="▢"
+              description="Clean, readable format"
+            />
+            <ATSSpeedometer
+              label="Readability"
+              score={analysisData.readability}
+              color="auto"
+              icon="◈"
+              description="Content clarity & flow"
+            />
+          </div>
+        )}
+
+        {/* Detailed Metrics - Role-Fit Mode */}
+        {analysisMode === 'rolefit' && roleFitData && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <ATSSpeedometer
+              label="Skills Match"
+              score={roleFitData.skillsAnalysis.skillsMatchScore}
+              color="auto"
+              icon="◆"
+              description="Technical & soft skills alignment"
+            />
+            <ATSSpeedometer
+              label="Experience Relevance"
+              score={roleFitData.experienceAnalysis.relevanceScore}
+              color="auto"
+              icon="◈"
+              description="Industry & role experience match"
+            />
+            <ATSSpeedometer
+              label="Education Match"
+              score={roleFitData.educationAnalysis.educationScore}
+              color="auto"
+              icon="▢"
+              description="Educational background alignment"
+            />
+          </div>
+        )}
 
         {/* Progress Bars for Secondary Metrics */}
         <div className="space-y-4">
@@ -239,41 +391,100 @@ const ATSOptimizer = ({
           />
         </div>
 
-        {/* Basic Insights for all users */}
-        <div className="space-y-6">
-          <h3 className="text-lg font-semibold text-foreground">Key Insights</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {analysisData.insights?.slice(0, isPro ? analysisData.insights.length : 3).map((insight, index) => (
-              <div
-                key={index}
-                className={`p-4 rounded-xl border ${getInsightColors(insight.type)}`}
-              >
-                <div className="flex items-start space-x-3">
-                  <span className="text-2xl">{insight.icon}</span>
-                  <div className="space-y-1">
-                    <h4 className="font-semibold text-foreground">{insight.title}</h4>
-                    <p className="text-sm text-muted-foreground">{insight.description}</p>
+        {/* Insights for ATS Mode */}
+        {analysisMode === 'ats' && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-foreground">ATS Insights</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {analysisData.insights?.slice(0, isPro ? analysisData.insights.length : 3).map((insight, index) => (
+                <div
+                  key={index}
+                  className={`p-4 rounded-xl border backdrop-blur-sm ${getInsightColors(insight.type)}`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <span className="text-2xl">{insight.icon}</span>
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-foreground">{insight.title}</h4>
+                      <p className="text-sm text-muted-foreground">{insight.description}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            
-            {/* Pro Teaser for Free Users */}
-            {!isPro && analysisData.insights?.length > 3 && (
-              <div
-                className="p-4 rounded-xl border border-dashed border-primary/50 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors"
-                onClick={() => setShowUpgradeModal(true)}
-              >
-                <div className="flex items-center justify-center space-x-3 h-full">
-                  <div className="text-center">
-                    <div className="text-primary text-lg mb-2">+{analysisData.insights.length - 3} more insights</div>
-                    <p className="text-sm text-primary font-medium">Unlock with Pro</p>
+              ))}
+              
+              {/* Pro Teaser for Free Users */}
+              {!isPro && analysisData.insights?.length > 3 && (
+                <div
+                  className="p-4 rounded-xl border border-dashed border-primary/50 bg-primary/5 backdrop-blur-sm cursor-pointer hover:bg-primary/10 transition-colors"
+                  onClick={() => setShowUpgradeModal(true)}
+                >
+                  <div className="flex items-center justify-center space-x-3 h-full">
+                    <div className="text-center">
+                      <div className="text-primary text-lg mb-2">+{analysisData.insights.length - 3} more insights</div>
+                      <p className="text-sm text-primary font-medium">Unlock with Pro</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Insights for Role-Fit Mode */}
+        {analysisMode === 'rolefit' && roleFitData && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-foreground">Role-Fit Insights</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Strengths */}
+              <div className="space-y-4">
+                <h4 className="text-md font-medium text-green-400 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" /> Your Strengths
+                </h4>
+                <div className="space-y-3">
+                  {roleFitData.strengths?.map((strength, index) => (
+                    <div key={index} className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl backdrop-blur-sm">
+                      <h5 className="font-semibold text-green-400 mb-2">{strength.area}</h5>
+                      <p className="text-sm text-gray-300 mb-2">{strength.description}</p>
+                      <ul className="text-xs text-gray-400 space-y-1">
+                        {strength.details?.map((detail, idx) => (
+                          <li key={idx} className="flex items-center gap-1">
+                            <span className="w-1 h-1 bg-green-400 rounded-full"></span>
+                            {detail}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Gaps */}
+              <div className="space-y-4">
+                <h4 className="text-md font-medium text-orange-400 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5" /> Areas for Improvement
+                </h4>
+                <div className="space-y-3">
+                  {roleFitData.gaps?.map((gap, index) => (
+                    <div key={index} className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl backdrop-blur-sm">
+                      <h5 className="font-semibold text-orange-400 mb-2">{gap.area}</h5>
+                      <p className="text-sm text-gray-300 mb-2">{gap.description}</p>
+                      <div className="text-xs text-gray-400 space-y-1">
+                        <div className="text-orange-300">Impact: {gap.impact}</div>
+                        <ul className="space-y-1 mt-2">
+                          {gap.details?.map((detail, idx) => (
+                            <li key={idx} className="flex items-center gap-1">
+                              <span className="w-1 h-1 bg-orange-400 rounded-full"></span>
+                              {detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Keyword Analysis - Pro Feature with Teaser */}
         <div className="space-y-4">
@@ -344,43 +555,99 @@ const ATSOptimizer = ({
           </div>
         </div>
 
-        {/* Recommendations */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-foreground">Recommendations</h3>
-            {!isPro && (
-              <button
-                onClick={() => setShowUpgradeModal(true)}
-                className="text-sm text-primary hover:text-primary/80 font-medium"
-              >
-                Get All Recommendations
-              </button>
-            )}
-          </div>
-          <div className="space-y-3">
-            {analysisData.recommendations?.slice(0, isPro ? analysisData.recommendations.length : 2).map((recommendation, index) => (
-              <div
-                key={index}
-                className="flex items-start space-x-3 p-4 bg-muted/20 rounded-lg border border-border"
-              >
-                <span className="text-accent font-bold text-lg">{index + 1}</span>
-                <p className="text-muted-foreground">{recommendation}</p>
-              </div>
-            ))}
-            
-            {!isPro && analysisData.recommendations?.length > 2 && (
-              <div 
-                className="flex items-center justify-center p-4 bg-primary/5 border border-primary/20 border-dashed rounded-lg cursor-pointer hover:bg-primary/10 transition-colors"
-                onClick={() => setShowUpgradeModal(true)}
-              >
-                <div className="text-center">
-                  <div className="text-primary font-medium mb-1">+{analysisData.recommendations.length - 2} More Recommendations</div>
-                  <div className="text-xs text-muted-foreground">Upgrade to Pro for complete analysis</div>
+        {/* Recommendations - ATS Mode */}
+        {analysisMode === 'ats' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">ATS Recommendations</h3>
+              {!isPro && (
+                <button
+                  onClick={() => setShowUpgradeModal(true)}
+                  className="text-sm text-primary hover:text-primary/80 font-medium"
+                >
+                  Get All Recommendations
+                </button>
+              )}
+            </div>
+            <div className="space-y-3">
+              {analysisData.recommendations?.slice(0, isPro ? analysisData.recommendations.length : 2).map((rec, index) => {
+                const isObject = rec && typeof rec === 'object';
+                const title = isObject ? (rec.title || `Recommendation ${index + 1}`) : `Recommendation ${index + 1}`;
+                const description = isObject ? (rec.description || '') : String(rec ?? '');
+                const impact = isObject ? rec.impact : null;
+
+                return (
+                  <div
+                    key={index}
+                    className="flex items-start space-x-3 p-4 bg-gray-800/30 backdrop-blur-sm rounded-lg border border-gray-700/30"
+                  >
+                    <span className="text-purple-400 font-bold text-lg">{index + 1}</span>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-white mb-1">{title}</h4>
+                      {description && (
+                        <p className="text-gray-300 text-sm">{description}</p>
+                      )}
+                      {impact && (
+                        <div className="text-xs text-green-400 mt-2">💡 {impact}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {!isPro && analysisData.recommendations?.length > 2 && (
+                <div 
+                  className="flex items-center justify-center p-4 bg-primary/5 border border-primary/20 border-dashed rounded-lg cursor-pointer hover:bg-primary/10 transition-colors backdrop-blur-sm"
+                  onClick={() => setShowUpgradeModal(true)}
+                >
+                  <div className="text-center">
+                    <div className="text-primary font-medium mb-1">+{analysisData.recommendations.length - 2} More Recommendations</div>
+                    <div className="text-xs text-muted-foreground">Upgrade to Pro for complete analysis</div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Recommendations - Role-Fit Mode */}
+        {analysisMode === 'rolefit' && roleFitData && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Role-Fit Recommendations</h3>
+            <div className="space-y-3">
+              {roleFitData.recommendations?.map((rec, index) => (
+                <div key={index} className="p-6 bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/30">
+                  <div className="flex items-start gap-4">
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      rec.priority === 'high' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                      rec.priority === 'medium' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                      'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                    }`}>
+                      {rec.priority?.toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-white mb-2">{rec.title}</h4>
+                      <p className="text-gray-300 text-sm mb-3">{rec.description}</p>
+                      {rec.impact && (
+                        <div className="text-xs text-green-400 mb-3 font-medium">💡 {rec.impact}</div>
+                      )}
+                      {rec.actionItems && (
+                        <ul className="text-xs text-gray-400 space-y-1">
+                          {rec.actionItems.map((action, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="w-1 h-1 bg-gray-400 rounded-full mt-2 flex-shrink-0"></span>
+                              {action}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Pro-only Advanced Sections */}
         {isPro && analysisData.sectionsAnalysis && (
@@ -418,10 +685,14 @@ const ATSOptimizer = ({
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <button
-            onClick={performATSAnalysis}
-            className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
+            onClick={performAnalysis}
+            className={`px-8 py-3 text-white rounded-lg hover:opacity-90 transition-opacity font-medium ${
+              analysisMode === 'ats' 
+                ? 'bg-gradient-to-r from-purple-600 to-blue-600'
+                : 'bg-gradient-to-r from-green-600 to-emerald-600'
+            }`}
           >
-            ↻ Re-analyze Resume
+            ↻ Re-analyze {analysisMode === 'ats' ? 'ATS' : 'Role-Fit'}
           </button>
           {!isPro && (
             <button
