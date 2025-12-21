@@ -45,16 +45,23 @@ export async function POST(request) {
         const sanitizedResume = resumeContent.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
         const sanitizedJobDesc = jobDescription.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
-        // Create comprehensive ATS analysis prompt
-        const prompt = `You are an expert ATS (Applicant Tracking System) analyst. Analyze this resume against the job description and provide a comprehensive ATS optimization report.
+        // Create comprehensive ATS analysis prompt with enhanced instructions
+        const prompt = `You are a senior ATS (Applicant Tracking System) specialist and resume optimization expert with 10+ years of experience. Your task is to provide a detailed, actionable analysis comparing this resume against the specific job description.
 
-RESUME CONTENT:
+=== RESUME CONTENT ===
 ${sanitizedResume}
 
-JOB DESCRIPTION:
+=== JOB DESCRIPTION ===
 ${sanitizedJobDesc}
 
-Provide your analysis in the following JSON format (respond ONLY with valid JSON, no additional text):
+=== ANALYSIS INSTRUCTIONS ===
+1. Perform deep keyword analysis - identify exact matches, synonyms, and missing critical terms
+2. Evaluate ATS parsing compatibility (formatting, structure, readability)
+3. Assess content alignment with job requirements
+4. Provide specific, actionable recommendations
+5. Focus on measurable improvements that will increase ATS score
+
+Respond with ONLY valid JSON in this exact format:
 
 {
   "overallScore": [number 0-100],
@@ -97,58 +104,112 @@ Provide your analysis in the following JSON format (respond ONLY with valid JSON
   ]
 }
 
-ANALYSIS CRITERIA:
-1. **Overall Score**: Comprehensive ATS compatibility (0-100)
-2. **ATS Compatibility**: How well the resume format works with ATS systems
-3. **Keyword Match**: Percentage of job requirements keywords found in resume
-4. **Formatting**: Clean, readable, ATS-friendly structure
-5. **Sections Optimization**: Presence and quality of essential resume sections
-6. **Readability**: Clear, professional language and flow
+=== DETAILED ANALYSIS CRITERIA ===
 
-SCORING GUIDELINES:
-- 90-100: Excellent - Ready for ATS submission
-- 80-89: Good - Minor improvements needed
-- 70-79: Fair - Several improvements required
-- 60-69: Poor - Major improvements needed
-- Below 60: Needs significant work
+**SCORING METHODOLOGY:**
+- Overall Score (0-100): Weighted composite of all factors
+- ATS Compatibility (0-100): Resume parsing friendliness, format structure
+- Keyword Match (0-100): Percentage of critical job keywords found
+- Formatting (0-100): Clean structure, proper sections, readability
+- Sections Optimization (0-100): Completeness of essential resume sections
+- Readability (0-100): Professional language, clear flow, grammar
 
-Focus on:
-- Exact keyword matches from job description
-- Missing critical skills/requirements
-- ATS-friendly formatting issues
-- Section completeness and relevance
-- Quantifiable achievements alignment
-- Industry-specific terminology usage
+**QUALITY BENCHMARKS:**
+- 90-100: Exceptional - ATS-optimized, highly competitive
+- 80-89: Strong - Minor tweaks needed, good ATS performance
+- 70-79: Adequate - Several improvements needed for competitiveness
+- 60-69: Weak - Major optimization required
+- Below 60: Poor - Significant restructuring needed
 
-Be specific and actionable in recommendations.`;
+**CRITICAL FOCUS AREAS:**
+1. Exact keyword matching from job description (weight: 35%)
+2. Missing essential skills and requirements (weight: 25%)
+3. ATS parsing compatibility and format issues (weight: 20%)
+4. Section completeness and professional structure (weight: 15%)
+5. Quantified achievements and impact statements (weight: 5%)
 
-        // Call Pollinations AI API
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+**INSIGHT REQUIREMENTS:**
+- Provide specific examples from the resume
+- Suggest exact keyword insertions
+- Identify formatting improvements
+- Recommend section reorganization
+- Quantify potential score improvements
 
-        const apiRes = await fetch("https://text.pollinations.ai/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/plain, */*",
-                "User-Agent": "AI-Resume-ATS-Analyzer/1.0",
-            },
-            body: JSON.stringify({
-                messages: [{
-                    role: "user",
-                    content: prompt
-                }],
-                model: "openai"
-            }),
-            signal: controller.signal
-        });
+Generate actionable, measurable recommendations with clear priority levels.`;
 
-        clearTimeout(timeoutId);
+        // Enhanced Pollinations AI API call with retry mechanism
+        let apiRes;
+        let lastError;
+        const maxRetries = 3;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), attempt === 1 ? 45000 : 60000);
 
-        if (!apiRes.ok) {
-            const errorText = await apiRes.text().catch(() => 'Unknown error');
-            console.error(`API request failed with status ${apiRes.status}:`, errorText);
-            throw new Error(`API request failed with status ${apiRes.status}: ${errorText}`);
+                apiRes = await fetch("https://text.pollinations.ai/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json, text/plain, */*",
+                        "User-Agent": "AI-Resume-ATS-Analyzer/1.0",
+                        "X-Retry-Attempt": attempt.toString(),
+                    },
+                    body: JSON.stringify({
+                        messages: [{
+                            role: "system",
+                            content: "You are an expert ATS analyst. Provide detailed, actionable resume analysis in the exact JSON format specified. Focus on practical improvements."
+                        }, {
+                            role: "user",
+                            content: prompt
+                        }],
+                        model: "openai",
+                        temperature: 0.3, // Lower temperature for more consistent output
+                        max_tokens: 4000
+                    }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                
+                if (apiRes.ok) {
+                    break; // Success, exit retry loop
+                }
+                
+                lastError = new Error(`API request failed with status ${apiRes.status} (attempt ${attempt})`);
+                
+                // Don't retry on client errors (4xx)
+                if (apiRes.status >= 400 && apiRes.status < 500) {
+                    break;
+                }
+                
+            } catch (error) {
+                lastError = error;
+                console.error(`API request attempt ${attempt} failed:`, error.message);
+                
+                // Don't retry on abort errors unless it's the last attempt
+                if (error.name === 'AbortError' && attempt < maxRetries) {
+                    continue;
+                }
+            }
+            
+            // Wait before retry (exponential backoff)
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            }
+        }
+
+        // Handle final API response
+        if (!apiRes || !apiRes.ok) {
+            console.error('All API retry attempts failed:', lastError?.message);
+            
+            // Provide intelligent fallback analysis based on basic text analysis
+            const fallbackAnalysis = generateFallbackAnalysis(sanitizedResume, sanitizedJobDesc);
+            return NextResponse.json({
+                ...fallbackAnalysis,
+                fallback: true,
+                message: "Analysis completed with enhanced fallback system due to temporary AI service unavailability."
+            });
         }
 
         // Handle response
@@ -255,4 +316,113 @@ Be specific and actionable in recommendations.`;
             { status: 500 }
         );
     }
+}
+
+/**
+ * Generate intelligent fallback analysis using basic text processing
+ */
+function generateFallbackAnalysis(resumeText, jobDescription) {
+    const resumeLower = resumeText.toLowerCase();
+    const jobLower = jobDescription.toLowerCase();
+    
+    // Extract keywords from job description
+    const jobKeywords = extractKeywords(jobDescription);
+    const resumeKeywords = extractKeywords(resumeText);
+    
+    // Calculate keyword match
+    const matchedKeywords = jobKeywords.filter(keyword => 
+        resumeLower.includes(keyword.toLowerCase())
+    );
+    const keywordMatch = jobKeywords.length > 0 ? 
+        Math.round((matchedKeywords.length / jobKeywords.length) * 100) : 70;
+    
+    // Basic ATS compatibility check
+    const hasEmail = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/.test(resumeText);
+    const hasPhone = /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/.test(resumeText);
+    const hasStandardSections = [
+        'experience', 'education', 'skills', 'summary', 'objective'
+    ].some(section => resumeLower.includes(section));
+    
+    const atsCompatibility = Math.min(100, (
+        (hasEmail ? 25 : 0) + 
+        (hasPhone ? 25 : 0) + 
+        (hasStandardSections ? 30 : 0) + 
+        (resumeText.length > 200 ? 20 : 10)
+    ));
+    
+    // Generate insights based on analysis
+    const insights = [];
+    
+    if (keywordMatch >= 70) {
+        insights.push({
+            type: 'strength',
+            title: 'Good Keyword Match',
+            description: `Your resume contains ${matchedKeywords.length} relevant keywords from the job description.`,
+            icon: '✅'
+        });
+    } else {
+        insights.push({
+            type: 'improvement',
+            title: 'Keyword Optimization Needed',
+            description: 'Consider adding more relevant keywords from the job description to improve ATS compatibility.',
+            icon: '🔍'
+        });
+    }
+    
+    if (!hasEmail || !hasPhone) {
+        insights.push({
+            type: 'warning',
+            title: 'Missing Contact Information',
+            description: 'Ensure your resume includes both email and phone number for ATS parsing.',
+            icon: '📞'
+        });
+    }
+    
+    const overallScore = Math.round(
+        (keywordMatch * 0.4) + 
+        (atsCompatibility * 0.3) + 
+        (hasStandardSections ? 85 : 60) * 0.2 +
+        (resumeText.length > 500 ? 80 : 60) * 0.1
+    );
+    
+    return {
+        overallScore,
+        atsCompatibility,
+        keywordMatch,
+        formatting: hasStandardSections ? 85 : 65,
+        sectionsOptimization: hasStandardSections ? 80 : 60,
+        readability: resumeText.length > 300 ? 75 : 60,
+        insights,
+        recommendations: [
+            'Review and incorporate relevant keywords from the job description',
+            'Ensure all standard resume sections are clearly labeled',
+            'Use action verbs and quantify achievements where possible',
+            'Check that contact information is prominently displayed'
+        ],
+        keywordAnalysis: {
+            matched: matchedKeywords.slice(0, 10),
+            missing: jobKeywords.filter(kw => !matchedKeywords.includes(kw)).slice(0, 8),
+            frequency: {}
+        },
+        sectionsAnalysis: {
+            present: ['Contact Information', 'Professional Experience'],
+            missing: hasStandardSections ? [] : ['Skills', 'Education'],
+            scores: { 'Overall Structure': hasStandardSections ? 80 : 60 }
+        }
+    };
+}
+
+/**
+ * Extract relevant keywords from text
+ */
+function extractKeywords(text) {
+    const commonSkills = [
+        'javascript', 'python', 'java', 'react', 'node.js', 'sql', 'aws', 'docker',
+        'project management', 'leadership', 'communication', 'teamwork', 'problem solving',
+        'analytics', 'marketing', 'sales', 'customer service', 'data analysis',
+        'microsoft office', 'excel', 'powerpoint', 'adobe', 'figma', 'git'
+    ];
+    
+    const textLower = text.toLowerCase();
+    return commonSkills.filter(skill => textLower.includes(skill));
 }

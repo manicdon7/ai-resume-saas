@@ -51,12 +51,13 @@ export class UserService {
         );
       } else {
         // Create new user with default preferences
+        const nowIso = new Date().toISOString();
         const newUserData = {
           ...userData,
-          createdAt: new Date().toISOString(),
+          createdAt: nowIso,
           isNotificationOn: additionalData.isNotificationOn ?? true,
           acceptedTerms: additionalData.acceptedTerms ?? false,
-          termsAcceptedAt: additionalData.acceptedTerms ? new Date().toISOString() : null,
+          termsAcceptedAt: additionalData.acceptedTerms ? nowIso : null,
           emailPreferences: additionalData.emailPreferences ?? {
             welcomeEmails: true,
             resumeUpdates: true,
@@ -67,7 +68,8 @@ export class UserService {
           },
           credits: 3, // Default free credits
           isPro: false,
-          plan: 'free'
+          plan: 'free',
+          lastCreditReset: nowIso
         };
 
         await usersCollection.insertOne(newUserData);
@@ -262,6 +264,75 @@ export class UserService {
   }
 
   /**
+   * Save resume data for a user (create or update)
+   */
+  static async saveResumeData(uid, resumeData) {
+    try {
+      const mongoDb = await this.getMongoClient();
+      const resumesCollection = mongoDb.collection('resumes');
+
+      const nowIso = new Date().toISOString();
+      const baseResume = {
+        userId: uid,
+        ...resumeData,
+        updatedAt: nowIso
+      };
+
+      const existingResume = await resumesCollection.findOne({ userId: uid });
+
+      let resumeToSave;
+      if (existingResume) {
+        resumeToSave = {
+          ...baseResume,
+          createdAt: existingResume.createdAt || nowIso
+        };
+        await resumesCollection.updateOne(
+          { userId: uid },
+          { $set: resumeToSave }
+        );
+      } else {
+        resumeToSave = {
+          ...baseResume,
+          createdAt: nowIso
+        };
+        await resumesCollection.insertOne(resumeToSave);
+      }
+
+      // Log activity in activities collection
+      await this.addUserActivity(uid, 'resume_upload', 'Resume uploaded and processed', {
+        fileName: resumeToSave.fileName,
+        fileType: resumeToSave.fileType,
+        fileSize: resumeToSave.fileSize
+      });
+
+      return resumeToSave;
+    } catch (error) {
+      console.error('Error saving resume data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete resume data for a user
+   */
+  static async deleteResumeData(uid) {
+    try {
+      const mongoDb = await this.getMongoClient();
+      const resumesCollection = mongoDb.collection('resumes');
+
+      await resumesCollection.deleteOne({ userId: uid });
+
+      // Log activity in activities collection
+      await this.addUserActivity(uid, 'resume_delete', 'Resume removed');
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting resume data:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Add user activity
    */
   static async addUserActivity(userId, type, description, metadata = {}) {
@@ -434,7 +505,8 @@ export class UserService {
     const allowedFields = [
       'uid', 'email', 'displayName', 'photoURL', 'emailVerified', 'provider',
       'isNotificationOn', 'acceptedTerms', 'emailPreferences', 'credits', 'isPro', 'plan',
-      'createdAt', 'updatedAt', 'lastLoginAt', 'termsAcceptedAt'
+      'createdAt', 'updatedAt', 'lastLoginAt', 'termsAcceptedAt',
+      'lastCreditReset', 'lastActivityAt'
     ];
 
     const extraFields = Object.keys(userData).filter(field => !allowedFields.includes(field));

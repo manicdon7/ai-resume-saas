@@ -1,80 +1,73 @@
 import { NextResponse } from 'next/server';
 import { CreditsService } from '../../../lib/credits-service';
+import { withErrorHandler, APIError, ERROR_CODES } from '@/lib/api-error-handler';
+import { creditProtectedMiddleware } from '@/lib/api-middleware';
 
-export async function POST(request) {
-    try {
-        // --- Credit System Start ---
-        const authHeader = request.headers.get('authorization');
-        const creditResult = await CreditsService.middleware(request, CreditsService.CREDIT_ACTIONS.RESUME_PARSE);
-        
-        if (creditResult.response) {
-            return creditResult.response;
-        }
-        
-        const user = creditResult.user;
-        const isPro = creditResult.isPro;
-        const transaction = creditResult.transaction;
-        // --- Credit System End ---
+async function generateHandler(request) {
+  // Add timeout for request parsing
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Request timeout')), 30000)
+  );
 
-        // Add timeout for request parsing
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Request timeout')), 30000)
-        );
+  const requestData = await Promise.race([
+    request.json(),
+    timeoutPromise
+  ]);
 
-        const requestData = await Promise.race([
-            request.json(),
-            timeoutPromise
-        ]);
+  const { resumeText, jobDesc, resume, jobDescription } = requestData;
 
-        const { resumeText, jobDesc, resume, jobDescription } = requestData;
+  // Normalize input fields for compatibility
+  const normalizedResume = resumeText || resume || '';
+  const normalizedJobDesc = jobDesc || jobDescription || '';
 
-        // Normalize input fields for compatibility
-        const normalizedResume = resumeText || resume || '';
-        const normalizedJobDesc = jobDesc || jobDescription || '';
+  // Validate and sanitize inputs
+  if (!normalizedJobDesc || typeof normalizedJobDesc !== 'string' || !normalizedJobDesc.trim()) {
+    // If resume is provided, generate a generic enhancement, else return warning
+    if (normalizedResume && normalizedResume.trim()) {
+      // Fallback: generate a generic resume enhancement
+      return NextResponse.json({
+        success: true,
+        data: {
+          text: "⚠️ Job description is required for optimal resume tailoring. Please provide the job description to get the best results."
+        },
+        message: "Job description required for tailoring",
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      throw new APIError(
+        'Job description is required for optimal resume tailoring',
+        400,
+        ERROR_CODES.MISSING_REQUIRED_FIELD
+      );
+    }
+  }
 
-        // Validate and sanitize inputs
-        if (!normalizedJobDesc || typeof normalizedJobDesc !== 'string' || !normalizedJobDesc.trim()) {
-            // If resume is provided, generate a generic enhancement, else return warning
-            if (normalizedResume && normalizedResume.trim()) {
-                // Fallback: generate a generic resume enhancement
-                // ... (copy the fallback logic from later in the file)
-                // For now, just return a generic template
-                return NextResponse.json(
-                    { text: "\u26a0\ufe0f Job description is required for optimal resume tailoring. Please provide the job description to get the best results." },
-                    { status: 200 }
-                );
-            } else {
-                return NextResponse.json(
-                    { text: "\u26a0\ufe0f Job description is required for optimal resume tailoring. Please provide the job description to get the best results." },
-                    { status: 400 }
-                );
-            }
-        }
+  // Check input length limits
+  if (normalizedJobDesc.length > 10000) {
+    throw new APIError(
+      'Job description is too long. Please limit to 10,000 characters.',
+      400,
+      ERROR_CODES.INVALID_INPUT
+    );
+  }
 
-        // Check input length limits
-        if (normalizedJobDesc.length > 10000) {
-            return NextResponse.json(
-                { text: "Warning: Job description is too long. Please limit to 10,000 characters." },
-                { status: 400 }
-            );
-        }
+  if (normalizedResume && normalizedResume.length > 15000) {
+    throw new APIError(
+      'Resume text is too long. Please limit to 15,000 characters.',
+      400,
+      ERROR_CODES.INVALID_INPUT
+    );
+  }
 
-        if (normalizedResume && normalizedResume.length > 15000) {
-            return NextResponse.json(
-                { text: "Warning: Resume text is too long. Please limit to 15,000 characters." },
-                { status: 400 }
-            );
-        }
+  // Sanitize inputs (basic sanitization)
+  const sanitizedJobDesc = normalizedJobDesc.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  const sanitizedResumeText = normalizedResume ? normalizedResume.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') : '';
 
-        // Sanitize inputs (basic sanitization)
-        const sanitizedJobDesc = normalizedJobDesc.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-        const sanitizedResumeText = normalizedResume ? normalizedResume.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') : '';
+  // Create a comprehensive prompt for resume enhancement
+  const hasUserResume = sanitizedResumeText && sanitizedResumeText.trim().length > 50;
 
-        // Create a comprehensive prompt for resume enhancement
-        const hasUserResume = sanitizedResumeText && sanitizedResumeText.trim().length > 50;
-
-        const basePrompt = hasUserResume
-            ? `You are a professional resume writer. Enhance this resume to perfectly match the target job requirements while maintaining authenticity.
+  const basePrompt = hasUserResume
+    ? `You are a professional resume writer. Enhance this resume to perfectly match the target job requirements while maintaining authenticity.
 
 CURRENT RESUME:
 ${sanitizedResumeText}
@@ -88,7 +81,7 @@ ENHANCEMENT GOALS:
 - Highlight transferable skills
 - Improve professional language and impact statements
 - Maintain truthfulness while maximizing appeal`
-            : `You are a professional resume writer. Create a compelling resume template based on this job posting.
+    : `You are a professional resume writer. Create a compelling resume template based on this job posting.
 
 JOB REQUIREMENTS:
 ${sanitizedJobDesc}
@@ -100,7 +93,7 @@ CREATION GOALS:
 - Optimize for ATS scanning
 - Create professional, modern layout`;
 
-        const instructions = `
+  const instructions = `
 
 Create a professional resume with clean formatting. Structure exactly as follows:
 
@@ -167,188 +160,190 @@ CRITICAL REQUIREMENTS:
 - No generic templates - tailor everything to this specific job
 - Maintain authenticity while optimizing for impact`;
 
-        const prompt = basePrompt + instructions;
+  const prompt = basePrompt + instructions;
 
-        // Call Pollinations AI API with improved error handling and timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+  // Call Pollinations AI API with improved error handling and timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
 
-        const apiRes = await fetch("https://text.pollinations.ai/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/plain, */*",
-                "User-Agent": "AI-Resume-Enhancer/1.0",
-            },
-            body: JSON.stringify({
-                messages: [{
-                    role: "user",
-                    content: prompt
-                }],
-                model: "openai"
-            }),
-            signal: controller.signal
-        });
+  const apiRes = await fetch("https://text.pollinations.ai/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/plain, */*",
+      "User-Agent": "AI-Resume-Enhancer/1.0",
+    },
+    body: JSON.stringify({
+      messages: [{
+        role: "user",
+        content: prompt
+      }],
+      model: "openai"
+    }),
+    signal: controller.signal
+  });
 
-        clearTimeout(timeoutId);
+  clearTimeout(timeoutId);
 
-        if (!apiRes.ok) {
-            const errorText = await apiRes.text().catch(() => 'Unknown error');
-            console.error(`API request failed with status ${apiRes.status}:`, errorText);
-            throw new Error(`API request failed with status ${apiRes.status}: ${errorText}`);
-        }
+  if (!apiRes.ok) {
+    const errorText = await apiRes.text().catch(() => 'Unknown error');
+    console.error(`API request failed with status ${apiRes.status}:`, errorText);
+    throw new APIError(
+      `AI service temporarily unavailable. Status: ${apiRes.status}`,
+      503,
+      ERROR_CODES.EXTERNAL_SERVICE_ERROR
+    );
+  }
 
-        // Handle both JSON and plain text responses with better error handling
-        let result;
-        const contentType = apiRes.headers.get('content-type') || '';
+  // Handle both JSON and plain text responses with better error handling
+  let result;
+  const contentType = apiRes.headers.get('content-type') || '';
 
-        try {
-            if (contentType.includes('application/json')) {
-                const data = await apiRes.json();
-                result = data.completion || data.output || data.text || data.response || data.message || JSON.stringify(data);
-            } else {
-                // Handle plain text response
-                result = await apiRes.text();
-            }
-        } catch (parseError) {
-            console.error('Error parsing API response:', parseError);
-            // Fallback to text parsing
-            result = await apiRes.text().catch(() => 'Error parsing response');
-        }
-
-        if (!result || result.trim().length === 0) {
-            result = "No output generated. Please try again with a different prompt.";
-        }
-
-        // Validate result length and content
-        if (result.length < 50) {
-            const fallbackTitle = hasUserResume ? "Enhanced Resume" : "Professional Resume Template";
-            const fallbackContent = [
-                `# ${fallbackTitle}`,
-                "",
-                "## Professional Summary",
-                hasUserResume
-                    ? "Enhanced professional summary based on your experience and the target job requirements."
-                    : "Results-driven professional with expertise in the technologies and skills mentioned in the job description.",
-                "",
-                "## Technical Skills",
-                "- **Programming Languages**: JavaScript, TypeScript, HTML5, CSS3",
-                "- **Frameworks & Libraries**: React.js, Next.js, Tailwind CSS",
-                "- **Tools & Technologies**: Git/GitHub, REST APIs, CI/CD pipelines",
-                "- **Soft Skills**: Problem-solving, Team collaboration, Communication",
-                "",
-                "## Professional Experience",
-                "",
-                "### Frontend Developer",
-                "**[Company Name]** | Remote | [Dates]",
-                "- Developed responsive web applications using React.js and Next.js",
-                "- Collaborated with cross-functional teams to deliver user-friendly interfaces",
-                "- Implemented REST API integrations and optimized application performance",
-                "- Participated in code reviews and maintained high code quality standards",
-                "",
-                "## Education",
-                "**Bachelor's Degree** in Computer Science",
-                "[University Name] | [Year]",
-                "",
-                "## Additional Skills",
-                "- Experience with modern development workflows",
-                "- Knowledge of responsive design principles",
-                "- Familiarity with version control systems",
-                "",
-                "---",
-                "",
-                "# Cover Letter",
-                "",
-                "Dear Hiring Manager,",
-                "",
-                "I am excited to apply for the Frontend Developer position. My experience with React.js, Next.js, and modern web development practices makes me a strong candidate for this role.",
-                "",
-                hasUserResume
-                    ? "Based on my background and the job requirements, I am confident I can contribute effectively to your team's success."
-                    : "I am passionate about creating exceptional user experiences and would welcome the opportunity to contribute to your team.",
-                "",
-                "Thank you for your consideration. I look forward to discussing how my skills align with your needs.",
-                "",
-                "Best regards,",
-                "[Your Name]"
-            ];
-            result = fallbackContent.join('\n');
-        }
-
-        // Send resume enhancement email notification
-        try {
-          if (user && user.email) {
-            // Get user preferences to check if notifications are enabled
-            const preferencesRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/user/preferences`, {
-              method: 'GET',
-              headers: {
-                'Authorization': authHeader
-              }
-            });
-
-            if (preferencesRes.ok) {
-              const preferences = await preferencesRes.json();
-              
-              if (preferences.isNotificationOn && preferences.emailPreferences?.resumeUpdates) {
-                // Extract job title and company from job description for email
-                const jobTitleMatch = sanitizedJobDesc.match(/(?:job title|position|role):\s*([^\n\r]+)/i) || 
-                                    sanitizedJobDesc.match(/hiring for\s+([^\n\r]+)/i) ||
-                                    sanitizedJobDesc.match(/^([^\n\r]+)/);
-                const companyMatch = sanitizedJobDesc.match(/(?:company|organization):\s*([^\n\r]+)/i) ||
-                                   sanitizedJobDesc.match(/at\s+([A-Z][a-zA-Z\s&]+)/);
-
-                const jobTitle = jobTitleMatch ? jobTitleMatch[1].trim() : 'Position';
-                const companyName = companyMatch ? companyMatch[1].trim() : 'Company';
-
-                await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/send-email`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    type: 'resumeEnhanced',
-                    email: user.email,
-                    authToken: authHeader.split('Bearer ')[1],
-                    templateData: {
-                      userName: user.name || user.displayName || 'User',
-                      jobTitle,
-                      companyName
-                    }
-                  })
-                });
-              }
-            }
-          }
-        } catch (emailError) {
-          console.error('Error sending resume enhancement email:', emailError);
-          // Don't fail the main request if email fails
-        }
-
-        return NextResponse.json({ text: result });
-
-    } catch (error) {
-        console.error('Error generating resume enhancement:', error);
-
-        // Provide more specific error messages based on error type
-        let errorMessage = "Error generating output. Please try again.";
-
-        if (error.name === 'AbortError' || error.message.includes('timeout')) {
-            errorMessage = "Request timed out. The AI service is taking too long to respond. Please try again.";
-        } else if (error.message.includes('fetch') || error.message.includes('network')) {
-            errorMessage = "Network error. Please check your internet connection and try again.";
-        } else if (error.message.includes('API request failed')) {
-            errorMessage = "AI service temporarily unavailable. Please try again in a moment.";
-        } else if (error.message.includes('JSON') || error.message.includes('parsing')) {
-            errorMessage = "Response parsing error. Please try again.";
-        } else if (error.message.includes('Request timeout')) {
-            errorMessage = "Request processing timeout. Please try with shorter content.";
-        }
-
-        return NextResponse.json(
-            {
-                text: errorMessage,
-                error: error.message,
-                timestamp: new Date().toISOString()
-            },
-            { status: 500 }
-        );
+  try {
+    if (contentType.includes('application/json')) {
+      const data = await apiRes.json();
+      result = data.completion || data.output || data.text || data.response || data.message || JSON.stringify(data);
+    } else {
+      // Handle plain text response
+      result = await apiRes.text();
     }
+  } catch (parseError) {
+    console.error('Error parsing API response:', parseError);
+    // Fallback to text parsing
+    result = await apiRes.text().catch(() => 'Error parsing response');
+  }
+
+  if (!result || result.trim().length === 0) {
+    result = "No output generated. Please try again with a different prompt.";
+  }
+
+  // Validate result length and content
+  if (result.length < 50) {
+    const fallbackTitle = hasUserResume ? "Enhanced Resume" : "Professional Resume Template";
+    const fallbackContent = [
+      `# ${fallbackTitle}`,
+      "",
+      "## Professional Summary",
+      hasUserResume
+        ? "Enhanced professional summary based on your experience and the target job requirements."
+        : "Results-driven professional with expertise in the technologies and skills mentioned in the job description.",
+      "",
+      "## Technical Skills",
+      "- **Programming Languages**: JavaScript, TypeScript, HTML5, CSS3",
+      "- **Frameworks & Libraries**: React.js, Next.js, Tailwind CSS",
+      "- **Tools & Technologies**: Git/GitHub, REST APIs, CI/CD pipelines",
+      "- **Soft Skills**: Problem-solving, Team collaboration, Communication",
+      "",
+      "## Professional Experience",
+      "",
+      "### Frontend Developer",
+      "**[Company Name]** | Remote | [Dates]",
+      "- Developed responsive web applications using React.js and Next.js",
+      "- Collaborated with cross-functional teams to deliver user-friendly interfaces",
+      "- Implemented REST API integrations and optimized application performance",
+      "- Participated in code reviews and maintained high code quality standards",
+      "",
+      "## Education",
+      "**Bachelor's Degree** in Computer Science",
+      "[University Name] | [Year]",
+      "",
+      "## Additional Skills",
+      "- Experience with modern development workflows",
+      "- Knowledge of responsive design principles",
+      "- Familiarity with version control systems",
+      "",
+      "---",
+      "",
+      "# Cover Letter",
+      "",
+      "Dear Hiring Manager,",
+      "",
+      "I am excited to apply for the Frontend Developer position. My experience with React.js, Next.js, and modern web development practices makes me a strong candidate for this role.",
+      "",
+      hasUserResume
+        ? "Based on my background and the job requirements, I am confident I can contribute effectively to your team's success."
+        : "I am passionate about creating exceptional user experiences and would welcome the opportunity to contribute to your team.",
+      "",
+      "Thank you for your consideration. I look forward to discussing how my skills align with your needs.",
+      "",
+      "Best regards,",
+      "[Your Name]"
+    ];
+    result = fallbackContent.join('\n');
+  }
+
+  // Get user info for activity logging
+  const authHeader = request.headers.get('authorization');
+  let user = null;
+  
+  try {
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.split('Bearer ')[1];
+      const decodedToken = await auth.verifyIdToken(token);
+      user = { uid: decodedToken.uid, email: decodedToken.email };
+    }
+  } catch (authError) {
+    console.log('Could not get user info for activity logging');
+  }
+
+  // Send resume enhancement email notification
+  try {
+    if (user && user.email) {
+      // Get user preferences to check if notifications are enabled
+      const preferencesRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/user/preferences`, {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader
+        }
+      });
+
+      if (preferencesRes.ok) {
+        const preferences = await preferencesRes.json();
+        
+        if (preferences.isNotificationOn && preferences.emailPreferences?.resumeUpdates) {
+          // Extract job title and company from job description for email
+          const jobTitleMatch = sanitizedJobDesc.match(/(?:job title|position|role):\s*([^\n\r]+)/i) || 
+                              sanitizedJobDesc.match(/hiring for\s+([^\n\r]+)/i) ||
+                              sanitizedJobDesc.match(/^([^\n\r]+)/);
+          const companyMatch = sanitizedJobDesc.match(/(?:company|organization):\s*([^\n\r]+)/i) ||
+                             sanitizedJobDesc.match(/at\s+([A-Z][a-zA-Z\s&]+)/);
+
+          const jobTitle = jobTitleMatch ? jobTitleMatch[1].trim() : 'Position';
+          const companyName = companyMatch ? companyMatch[1].trim() : 'Company';
+
+          await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/send-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'resumeEnhanced',
+              email: user.email,
+              authToken: authHeader.split('Bearer ')[1],
+              templateData: {
+                userName: user.name || user.displayName || 'User',
+                jobTitle,
+                companyName
+              }
+            })
+          });
+        }
+      }
+    }
+  } catch (emailError) {
+    console.error('Error sending resume enhancement email:', emailError);
+    // Don't fail the main request if email fails
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: {
+      text: result
+    },
+    message: "Resume enhancement completed successfully",
+    timestamp: new Date().toISOString()
+  });
 }
+
+export const POST = creditProtectedMiddleware(
+  CreditsService.CREDIT_ACTIONS.RESUME_ENHANCEMENT, 
+  1
+)(withErrorHandler(generateHandler));

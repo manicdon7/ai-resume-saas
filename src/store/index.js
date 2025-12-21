@@ -8,10 +8,60 @@ import jobsSlice from './slices/jobsSlice';
 import uiSlice from './slices/uiSlice';
 import dashboardSlice from './slices/dashboardSlice';
 
+// Enhanced persist configuration
 const persistConfig = {
-  key: 'root',
+  key: 'rolefit-ai-v1',
   storage,
-  whitelist: ['auth', 'resume', 'jobs', 'dashboard'] // Only persist these slices
+  whitelist: ['auth', 'resume', 'jobs', 'dashboard'],
+  blacklist: ['ui'], // Don't persist UI state
+  version: 1,
+  migrate: (state) => {
+    // Handle state migrations between versions
+    if (state && state._persist && state._persist.version !== 1) {
+      // Migration logic for future versions
+      console.log('Migrating Redux state to version 1');
+    }
+    return Promise.resolve(state);
+  }
+};
+
+// Enhanced error handling middleware
+const errorHandlingMiddleware = (store) => (next) => (action) => {
+  try {
+    return next(action);
+  } catch (error) {
+    console.error('Redux action error:', {
+      action: action.type,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Dispatch error to UI slice for user notification
+    store.dispatch({
+      type: 'ui/addNotification',
+      payload: {
+        type: 'error',
+        message: 'An error occurred. Please try again.',
+        timestamp: Date.now()
+      }
+    });
+    
+    throw error;
+  }
+};
+
+// Performance monitoring middleware
+const performanceMiddleware = (store) => (next) => (action) => {
+  const start = performance.now();
+  const result = next(action);
+  const end = performance.now();
+  
+  // Log slow actions in development
+  if (process.env.NODE_ENV === 'development' && (end - start) > 100) {
+    console.warn(`Slow Redux action: ${action.type} took ${(end - start).toFixed(2)}ms`);
+  }
+  
+  return result;
 };
 
 // Create a root reducer that handles global actions
@@ -158,22 +208,104 @@ export const store = configureStore({
         ignoredActionsPaths: ['meta.arg', 'payload.timestamp', 'payload', 'payload.resumeFile'],
         ignoredPaths: ['items.dates', 'resume.resumeFile'],
       },
-    }),
+      immutableCheck: {
+        warnAfter: 128, // Warn if immutability check takes longer than 128ms
+      },
+      thunk: {
+        extraArgument: {
+          // Add extra services that can be accessed in thunks
+          api: '/api',
+          storage: storage
+        }
+      }
+    })
+    .concat(errorHandlingMiddleware)
+    .concat(performanceMiddleware),
+  devTools: process.env.NODE_ENV === 'development' && {
+    name: 'RoleFit AI',
+    trace: true,
+    traceLimit: 25
+  }
 });
 
-export const persistor = persistStore(store);
+export const persistor = persistStore(store, {
+  manualPersist: false
+});
 
-// Utility function to dispatch signout across all slices
-export const signOutAllSlices = () => {
-  return (dispatch) => {
-    // Dispatch signout to all slices that have it
-    dispatch({ type: 'auth/signOut' });
-    dispatch({ type: 'resume/clearResume' });
-    dispatch({ type: 'jobs/signOut' });
-    dispatch({ type: 'ui/signOut' });
-    dispatch({ type: 'dashboard/clearDashboard' });
+// Enhanced store utilities
+export const getStoreState = () => store.getState();
+
+export const isStoreRehydrated = () => {
+  const state = store.getState();
+  return state._persist && state._persist.rehydrated;
+};
+
+// Wait for store rehydration
+export const waitForRehydration = () => {
+  return new Promise((resolve) => {
+    const unsubscribe = store.subscribe(() => {
+      if (isStoreRehydrated()) {
+        unsubscribe();
+        resolve(store.getState());
+      }
+    });
     
-    // Clear persisted state
-    persistor.purge();
+    // If already rehydrated, resolve immediately
+    if (isStoreRehydrated()) {
+      unsubscribe();
+      resolve(store.getState());
+    }
+  });
+};
+
+// Enhanced signout with cleanup
+export const signOutAllSlices = () => {
+  return async (dispatch) => {
+    try {
+      // Clear any pending API requests
+      if (typeof window !== 'undefined' && window.AbortController) {
+        // Signal to abort any ongoing requests
+        window.dispatchEvent(new CustomEvent('user-signout'));
+      }
+      
+      // Dispatch signout to all slices
+      dispatch({ type: 'auth/signOut' });
+      dispatch({ type: 'resume/clearResume' });
+      dispatch({ type: 'jobs/signOut' });
+      dispatch({ type: 'ui/signOut' });
+      dispatch({ type: 'dashboard/clearDashboard' });
+      
+      // Clear persisted state
+      await persistor.purge();
+      
+      // Clear localStorage items that aren't handled by redux-persist
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user-preferences');
+      }
+      
+      console.log('✅ User signed out and state cleared');
+    } catch (error) {
+      console.error('Error during signout:', error);
+      // Still try to clear what we can
+      await persistor.purge();
+    }
   };
+};
+
+// Store health check
+export const checkStoreHealth = () => {
+  const state = store.getState();
+  const health = {
+    isRehydrated: isStoreRehydrated(),
+    hasUser: !!state.auth?.user,
+    hasResume: !!state.resume?.resumeText,
+    lastActivity: state.auth?.stats?.lastActivityAt,
+    storeSize: JSON.stringify(state).length,
+    timestamp: new Date().toISOString()
+  };
+  
+  console.log('Store Health Check:', health);
+  return health;
 };

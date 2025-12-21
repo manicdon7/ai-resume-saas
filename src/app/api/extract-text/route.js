@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../lib/firebase-admin';
-import { UserService } from '../../../../lib/user-service';
+import { UserService } from '@/lib/user-service';
+import { CreditsService } from '@/lib/credits-service';
+import { withErrorHandler, APIError, ERROR_CODES } from '@/lib/api-error-handler';
+import { creditProtectedMiddleware } from '@/lib/api-middleware';
 
 // Enhanced resume parsing function
 async function parseResumeText(text) {
@@ -128,142 +131,154 @@ async function parseResumeText(text) {
     }
 }
 
-export async function POST(request) {
-    try {
-        console.log('Extract-text API called');
-        const formData = await request.formData();
-        const file = formData.get('file');
+async function extractTextHandler(request) {
+    console.log('Extract-text API called');
+    
+    const formData = await request.formData();
+    const file = formData.get('file');
 
-        console.log('File received:', file ? file.name : 'No file');
-        console.log('File type:', file ? file.type : 'No type');
-        console.log('File size:', file ? file.size : 'No size');
+    console.log('File received:', file ? file.name : 'No file');
+    console.log('File type:', file ? file.type : 'No type');
+    console.log('File size:', file ? file.size : 'No size');
 
-        if (!file) {
-            console.log('No file in request');
-            return NextResponse.json(
-                { error: "No file uploaded" },
-                { status: 400 }
-            );
-        }
+    if (!file) {
+        throw new APIError('No file uploaded', 400, ERROR_CODES.MISSING_REQUIRED_FIELD);
+    }
 
-        const bytes = await file.arrayBuffer();
-        const buffer = new Uint8Array(bytes);
-        console.log('Buffer size:', buffer.length);
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        throw new APIError('File size too large. Maximum size is 10MB.', 400, ERROR_CODES.INVALID_INPUT);
+    }
 
-        let extractedText = '';
+    const bytes = await file.arrayBuffer();
+    const buffer = new Uint8Array(bytes);
+    console.log('Buffer size:', buffer.length);
 
-        // Handle different file types
-        if (file.type === 'text/plain') {
-            // Handle TXT files
-            const decoder = new TextDecoder('utf-8');
-            extractedText = decoder.decode(buffer);
-        } else if (file.type === 'application/pdf') {
-            // Handle PDF files with pdf-parse
-            try {
-                const pdfParse = await import('pdf-parse/lib/pdf-parse.js');
-                const nodeBuffer = Buffer.from(buffer);
-                const data = await pdfParse.default(nodeBuffer);
-                extractedText = data.text;
+    let extractedText = '';
 
-                if (!extractedText || extractedText.trim().length === 0) {
-                    return NextResponse.json({
-                        error: "Could not extract text from PDF. The PDF might be image-based or encrypted.",
-                        text: "",
-                        suggestion: "Try copying the text manually: Open PDF → Select All (Ctrl+A/Cmd+A) → Copy → Paste below"
-                    });
-                }
-            } catch (error) {
-                console.error('PDF parsing error:', error);
-                return NextResponse.json({
-                    error: "Error processing PDF file. Please try copying the text manually.",
-                    text: "",
-                    suggestion: "Quick tip: Open your PDF → Select All (Ctrl+A/Cmd+A) → Copy (Ctrl+C/Cmd+C) → Paste below"
-                });
-            }
-        } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-            // Handle DOCX files with mammoth
-            try {
-                const mammoth = await import('mammoth');
-                const nodeBuffer = Buffer.from(buffer);
-                const result = await mammoth.extractRawText({ buffer: nodeBuffer });
-                extractedText = result.value;
-
-                if (!extractedText) {
-                    return NextResponse.json({
-                        error: "Could not extract text from DOCX file.",
-                        text: ""
-                    });
-                }
-            } catch (error) {
-                console.error('DOCX parsing error:', error);
-                return NextResponse.json({
-                    error: "Error processing DOCX file. Please try again or copy and paste the text.",
-                    text: ""
-                });
-            }
-        } else if (file.type === 'application/msword') {
-            // DOC files are more complex, provide helpful message
-            return NextResponse.json({
-                error: "Legacy DOC files are not supported. Please save as DOCX, PDF, or TXT format.",
-                text: ""
-            });
-        } else {
-            return NextResponse.json(
-                { error: "Unsupported file type. Please use PDF, DOCX, or TXT files." },
-                { status: 400 }
-            );
-        }
-
-        // Clean up the extracted text
-        extractedText = extractedText
-            .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
-            .replace(/\n\s*\n/g, '\n')  // Replace multiple newlines with single newline
-            .trim();
-
-        if (!extractedText) {
-            return NextResponse.json({
-                error: "No text could be extracted from the file. Please try copying and pasting instead.",
-                text: ""
-            });
-        }
-
-        // Parse basic resume data
-        const parsedData = await parseResumeText(extractedText);
-
-        // Try to get user info and save resume data
-        let userId = null;
+    // Handle different file types
+    if (file.type === 'text/plain') {
+        // Handle TXT files
+        const decoder = new TextDecoder('utf-8');
+        extractedText = decoder.decode(buffer);
+    } else if (file.type === 'application/pdf') {
+        // Handle PDF files with pdf-parse
         try {
-            const authHeader = request.headers.get('authorization');
-            if (authHeader?.startsWith('Bearer ')) {
-                const token = authHeader.split('Bearer ')[1];
-                const decodedToken = await auth.verifyIdToken(token);
-                userId = decodedToken.uid;
-                
-                // Save resume data to MongoDB
-                await UserService.saveResumeData(userId, {
-                    resumeText: extractedText,
-                    parsedData,
-                    fileName: file.name,
-                    fileType: file.type,
-                    fileSize: file.size
+            const pdfParse = await import('pdf-parse/lib/pdf-parse.js');
+            const nodeBuffer = Buffer.from(buffer);
+            const data = await pdfParse.default(nodeBuffer);
+            extractedText = data.text;
+
+            if (!extractedText || extractedText.trim().length === 0) {
+                return NextResponse.json({
+                    success: false,
+                    error: "Could not extract text from PDF. The PDF might be image-based or encrypted.",
+                    text: "",
+                    suggestion: "Try copying the text manually: Open PDF → Select All (Ctrl+A/Cmd+A) → Copy → Paste below"
                 });
             }
-        } catch (authError) {
-            console.log('No valid auth token, proceeding without saving to database');
+        } catch (error) {
+            console.error('PDF parsing error:', error);
+            throw new APIError(
+                'Error processing PDF file. Please try copying the text manually.',
+                400,
+                ERROR_CODES.EXTERNAL_SERVICE_ERROR,
+                { suggestion: "Quick tip: Open your PDF → Select All (Ctrl+A/Cmd+A) → Copy (Ctrl+C/Cmd+C) → Paste below" }
+            );
         }
+    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        // Handle DOCX files with mammoth
+        try {
+            const mammoth = await import('mammoth');
+            const nodeBuffer = Buffer.from(buffer);
+            const result = await mammoth.extractRawText({ buffer: nodeBuffer });
+            extractedText = result.value;
 
-        return NextResponse.json({
-            text: extractedText,
-            parsedData: parsedData,
-            message: "Text extracted successfully!",
-            saved: userId !== null
-        });
-
-    } catch (error) {
-        console.error('Error extracting text:', error);
-        return NextResponse.json(
-            { error: "Error processing file. Please try again or copy and paste your text." },
-            { status: 500 }
+            if (!extractedText) {
+                throw new APIError('Could not extract text from DOCX file.', 400, ERROR_CODES.EXTERNAL_SERVICE_ERROR);
+            }
+        } catch (error) {
+            console.error('DOCX parsing error:', error);
+            throw new APIError(
+                'Error processing DOCX file. Please try again or copy and paste the text.',
+                400,
+                ERROR_CODES.EXTERNAL_SERVICE_ERROR
+            );
+        }
+    } else if (file.type === 'application/msword') {
+        // DOC files are more complex, provide helpful message
+        throw new APIError(
+            'Legacy DOC files are not supported. Please save as DOCX, PDF, or TXT format.',
+            400,
+            ERROR_CODES.INVALID_INPUT
+        );
+    } else {
+        throw new APIError(
+            'Unsupported file type. Please use PDF, DOCX, or TXT files.',
+            400,
+            ERROR_CODES.INVALID_INPUT
         );
     }
+
+    // Clean up the extracted text
+    extractedText = extractedText
+        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+        .replace(/\n\s*\n/g, '\n')  // Replace multiple newlines with single newline
+        .trim();
+
+    if (!extractedText) {
+        return NextResponse.json({
+            success: false,
+            error: "No text could be extracted from the file. Please try copying and pasting instead.",
+            text: ""
+        });
+    }
+
+    // Parse basic resume data
+    const parsedData = await parseResumeText(extractedText);
+
+    // Try to get user info and save resume data
+    let userId = null;
+    let saved = false;
+    
+    try {
+        const authHeader = request.headers.get('authorization');
+        if (authHeader?.startsWith('Bearer ')) {
+            const token = authHeader.split('Bearer ')[1];
+            const decodedToken = await auth.verifyIdToken(token);
+            userId = decodedToken.uid;
+            
+            // Save resume data to MongoDB
+            await UserService.saveResumeData(userId, {
+                resumeText: extractedText,
+                parsedData,
+                fileName: file.name,
+                fileType: file.type,
+                fileSize: file.size
+            });
+            saved = true;
+        }
+    } catch (authError) {
+        console.log('No valid auth token, proceeding without saving to database');
+    }
+
+    return NextResponse.json({
+        success: true,
+        data: {
+            text: extractedText,
+            parsedData: parsedData,
+            saved: saved,
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size
+        },
+        message: "Text extracted successfully!",
+        timestamp: new Date().toISOString()
+    });
 }
+
+export const POST = creditProtectedMiddleware(
+  CreditsService.CREDIT_ACTIONS.RESUME_UPLOAD, 
+  1
+)(withErrorHandler(extractTextHandler));

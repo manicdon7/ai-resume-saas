@@ -90,7 +90,10 @@ export default function RootLayout({ children }) {
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7877602362549451"
           crossOrigin="anonymous"></script>
       </head>
-      <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}>
+      <body
+        suppressHydrationWarning={true}
+        className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} antialiased`}
+      >
         <AnimatedCursor />
         <ReduxProvider>
           {children}

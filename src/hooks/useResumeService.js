@@ -1,139 +1,442 @@
-import { useState, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
+import { useState, useEffect, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { ResumeService } from '../lib/resume-service';
+import { CreditsService } from '../lib/credits-service';
+import { 
+  setResumeText, 
+  setParsedData, 
+  setFileMetadata, 
+  updateMetadata,
+  setSyncStatus,
+  setError,
+  clearError,
+  clearResume
+} from '../store/slices/resumeSlice';
 
 /**
- * Custom hook for resume management operations
- * Provides functions to save, delete, parse, and sync resume data
+ * Enhanced Resume Service Hook
+ * Manages resume data, credit consumption, and state synchronization
  */
-export const useResumeService = () => {
+export function useResumeService() {
   const dispatch = useDispatch();
+  const resumeState = useSelector(state => state.resume);
+  const authState = useSelector(state => state.auth);
+  
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [creditInfo, setCreditInfo] = useState(null);
+
+  // Get current user info
+  const user = authState.user;
+  const authToken = typeof localStorage !== 'undefined' ? localStorage.getItem('authToken') : null;
 
   /**
-   * Save resume data
+   * Upload and process resume file with credit consumption
    */
-  const saveResume = useCallback(async (userId, resumeData) => {
+  const uploadResume = useCallback(async (file) => {
+    if (!user || !authToken) {
+      throw new Error('User must be authenticated to upload resume');
+    }
+
+    setLoading(true);
+    setUploadProgress(0);
+    dispatch(clearError());
+
     try {
-      setLoading(true);
-      setError(null);
+      // Check credits first
+      const creditCheck = await CreditsService.validateActionCredits(
+        `Bearer ${authToken}`, 
+        CreditsService.CREDIT_ACTIONS.RESUME_UPLOAD
+      );
+
+      if (!creditCheck.success) {
+        throw new Error(creditCheck.error);
+      }
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', file);
+
+      setUploadProgress(25);
+
+      // Upload and extract text (this will consume 1 credit)
+      const extractResponse = await fetch('/api/extract-text', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: formData
+      });
+
+      setUploadProgress(50);
+
+      if (!extractResponse.ok) {
+        const errorData = await extractResponse.json();
+        throw new Error(errorData.error?.message || 'Failed to extract text from file');
+      }
+
+      const extractData = await extractResponse.json();
       
-      const result = await ResumeService.saveResume(userId, resumeData, dispatch);
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
+      if (!extractData.success) {
+        throw new Error(extractData.error?.message || 'Failed to extract text');
+      }
+
+      setUploadProgress(75);
+
+      // Save resume data to state and database
+      const resumeData = {
+        resumeText: extractData.data.text,
+        parsedData: extractData.data.parsedData,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      };
+
+      // Update Redux state
+      dispatch(setResumeText(resumeData.resumeText));
+      dispatch(setParsedData(resumeData.parsedData));
+      dispatch(setFileMetadata({
+        fileName: resumeData.fileName,
+        fileSize: resumeData.fileSize,
+        fileType: resumeData.fileType
+      }));
+      dispatch(setSyncStatus('synced'));
+
+      setUploadProgress(100);
+
+      // Set credit info
+      setCreditInfo({
+        consumed: 1,
+        remaining: creditCheck.isPro ? 'unlimited' : creditCheck.credits - 1,
+        isPro: creditCheck.isPro
+      });
+
+      return {
+        success: true,
+        data: resumeData,
+        creditInfo: {
+          consumed: 1,
+          remaining: creditCheck.isPro ? 'unlimited' : creditCheck.credits - 1
+        }
+      };
+
+    } catch (error) {
+      console.error('Resume upload error:', error);
+      dispatch(setError(error.message));
+      throw error;
+    } finally {
+      setLoading(false);
+      setUploadProgress(0);
+    }
+  }, [user, authToken, dispatch]);
+
+  /**
+   * Analyze resume with ATS check (consumes 1 credit)
+   */
+  const analyzeATS = useCallback(async (jobDescription) => {
+    if (!user || !authToken) {
+      throw new Error('User must be authenticated');
+    }
+
+    if (!resumeState.resumeText) {
+      throw new Error('Please upload a resume first');
+    }
+
+    setLoading(true);
+    dispatch(clearError());
+
+    try {
+      const response = await fetch('/api/analysis/ats-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          resumeText: resumeState.resumeText,
+          jobDescription
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'ATS analysis failed');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error?.message || 'ATS analysis failed');
+      }
+
+      return data.data.analysis;
+
+    } catch (error) {
+      console.error('ATS analysis error:', error);
+      dispatch(setError(error.message));
+      throw error;
     } finally {
       setLoading(false);
     }
+  }, [user, authToken, resumeState.resumeText, dispatch]);
+
+  /**
+   * Analyze role fit (consumes 1 credit)
+   */
+  const analyzeRoleFit = useCallback(async (jobDescription) => {
+    if (!user || !authToken) {
+      throw new Error('User must be authenticated');
+    }
+
+    if (!resumeState.resumeText) {
+      throw new Error('Please upload a resume first');
+    }
+
+    setLoading(true);
+    dispatch(clearError());
+
+    try {
+      const response = await fetch('/api/analysis/role-fit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          resumeText: resumeState.resumeText,
+          jobDescription
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Role fit analysis failed');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error?.message || 'Role fit analysis failed');
+      }
+
+      return data.data.analysis;
+
+    } catch (error) {
+      console.error('Role fit analysis error:', error);
+      dispatch(setError(error.message));
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, authToken, resumeState.resumeText, dispatch]);
+
+  /**
+   * Generate enhanced resume (consumes 1 credit)
+   */
+  const enhanceResume = useCallback(async (jobDescription) => {
+    if (!user || !authToken) {
+      throw new Error('User must be authenticated');
+    }
+
+    if (!resumeState.resumeText) {
+      throw new Error('Please upload a resume first');
+    }
+
+    setLoading(true);
+    dispatch(clearError());
+
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          resumeText: resumeState.resumeText,
+          jobDescription
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Resume enhancement failed');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error?.message || 'Resume enhancement failed');
+      }
+
+      return data.data.text;
+
+    } catch (error) {
+      console.error('Resume enhancement error:', error);
+      dispatch(setError(error.message));
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, authToken, resumeState.resumeText, dispatch]);
+
+  /**
+   * Generate cover letter PDF (consumes 1 credit)
+   */
+  const generateCoverLetter = useCallback(async (jobDescription, name) => {
+    if (!user || !authToken) {
+      throw new Error('User must be authenticated');
+    }
+
+    if (!resumeState.resumeText) {
+      throw new Error('Please upload a resume first');
+    }
+
+    setLoading(true);
+    dispatch(clearError());
+
+    try {
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          content: resumeState.resumeText,
+          jobDescription,
+          name: name || resumeState.parsedData?.name || 'Your Name'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Cover letter generation failed');
+      }
+
+      // Return blob for download
+      const blob = await response.blob();
+      return blob;
+
+    } catch (error) {
+      console.error('Cover letter generation error:', error);
+      dispatch(setError(error.message));
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, authToken, resumeState.resumeText, resumeState.parsedData, dispatch]);
+
+  /**
+   * Sync resume data from database
+   */
+  const syncResumeData = useCallback(async () => {
+    if (!user) return;
+
+    setLoading(true);
+    dispatch(clearError());
+
+    try {
+      const resumeData = await ResumeService.syncResumeState(user.uid, dispatch);
+      return resumeData;
+    } catch (error) {
+      console.error('Resume sync error:', error);
+      dispatch(setError(error.message));
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, dispatch]);
+
+  /**
+   * Clear resume data
+   */
+  const clearResumeData = useCallback(() => {
+    dispatch(clearResume());
+    setCreditInfo(null);
   }, [dispatch]);
 
   /**
-   * Delete resume data
+   * Get resume completeness analysis
    */
-  const deleteResume = useCallback(async (userId) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const result = await ResumeService.deleteResume(userId, dispatch);
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+  const getResumeAnalysis = useCallback(() => {
+    if (!resumeState.parsedData) {
+      return {
+        isComplete: false,
+        completenessScore: 0,
+        suggestions: ['Upload a resume to get analysis']
+      };
     }
-  }, [dispatch]);
+
+    return {
+      isComplete: ResumeService.isResumeComplete(resumeState.parsedData),
+      completenessScore: ResumeService.calculateCompletenessScore(resumeState.parsedData),
+      suggestions: ResumeService.generateImprovementSuggestions(resumeState.parsedData),
+      skillsCount: resumeState.parsedData.skills?.length || 0,
+      experienceYears: ResumeService.calculateExperienceYears(resumeState.parsedData.experience)
+    };
+  }, [resumeState.parsedData]);
 
   /**
-   * Parse resume text
+   * Match resume with job description
    */
-  const parseResumeText = useCallback(async (resumeText) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const result = await ResumeService.parseResumeText(resumeText);
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+  const matchWithJob = useCallback((jobDescription) => {
+    if (!resumeState.parsedData || !jobDescription) {
+      return {
+        matchScore: 0,
+        matchedSkills: [],
+        missingSkills: [],
+        recommendations: ['Please provide both resume and job description']
+      };
     }
-  }, []);
 
-  /**
-   * Sync resume state with MongoDB
-   */
-  const syncResumeState = useCallback(async (userId) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const result = await ResumeService.syncResumeState(userId, dispatch);
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+    return ResumeService.analyzeJobMatch(
+      { parsedData: resumeState.parsedData }, 
+      jobDescription
+    );
+  }, [resumeState.parsedData]);
+
+  // Auto-sync resume data on user login
+  useEffect(() => {
+    if (user && !resumeState.resumeText && resumeState.syncStatus !== 'pending') {
+      syncResumeData().catch(console.error);
     }
-  }, [dispatch]);
-
-  /**
-   * Get resume data
-   */
-  const getResumeData = useCallback(async (userId) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const result = await ResumeService.getResumeData(userId);
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  /**
-   * Clear error state
-   */
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
+  }, [user, resumeState.resumeText, resumeState.syncStatus, syncResumeData]);
 
   return {
-    // Operations
-    saveResume,
-    deleteResume,
-    parseResumeText,
-    syncResumeState,
-    getResumeData,
-    
     // State
+    resumeState,
     loading,
-    error,
-    clearError
+    uploadProgress,
+    creditInfo,
+    
+    // Actions
+    uploadResume,
+    analyzeATS,
+    analyzeRoleFit,
+    enhanceResume,
+    generateCoverLetter,
+    syncResumeData,
+    clearResumeData,
+    
+    // Analysis
+    getResumeAnalysis,
+    matchWithJob,
+    
+    // Computed properties
+    hasResume: !!resumeState.resumeText,
+    isComplete: ResumeService.isResumeComplete(resumeState.parsedData),
+    completenessScore: ResumeService.calculateCompletenessScore(resumeState.parsedData)
   };
-};
+}
 
 /**
- * Custom hook for resume API operations
- * Provides functions to interact with resume API endpoints
+ * Legacy Resume Service Hook (for backward compatibility)
  */
 export const useResumeAPI = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  /**
-   * Get auth token from Firebase
-   */
   const getAuthToken = useCallback(async () => {
     try {
       const { getAuth } = await import('firebase/auth');
@@ -150,9 +453,6 @@ export const useResumeAPI = () => {
     }
   }, []);
 
-  /**
-   * Save resume via API
-   */
   const saveResumeAPI = useCallback(async (resumeData) => {
     try {
       setLoading(true);
@@ -184,152 +484,12 @@ export const useResumeAPI = () => {
     }
   }, [getAuthToken]);
 
-  /**
-   * Delete resume via API
-   */
-  const deleteResumeAPI = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const token = await getAuthToken();
-      
-      const response = await fetch('/api/resume/delete', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete resume');
-      }
-      
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [getAuthToken]);
-
-  /**
-   * Get resume via API
-   */
-  const getResumeAPI = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const token = await getAuthToken();
-      
-      const response = await fetch('/api/resume/save', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to get resume');
-      }
-      
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [getAuthToken]);
-
-  /**
-   * Sync resume via API
-   */
-  const syncResumeAPI = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const token = await getAuthToken();
-      
-      const response = await fetch('/api/resume/sync', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to sync resume');
-      }
-      
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [getAuthToken]);
-
-  /**
-   * Parse resume via API
-   */
-  const parseResumeAPI = useCallback(async (resumeText) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const token = await getAuthToken();
-      
-      const response = await fetch('/api/resume/parse', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ resumeText })
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to parse resume');
-      }
-      
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [getAuthToken]);
-
-  /**
-   * Clear error state
-   */
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
   return {
-    // API Operations
     saveResumeAPI,
-    deleteResumeAPI,
-    getResumeAPI,
-    syncResumeAPI,
-    parseResumeAPI,
-    
-    // State
     loading,
     error,
     clearError
